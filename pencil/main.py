@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
+import bokeh.io
 import bokeh.plotting
 import bokeh.models.callbacks
 
-def main():
+def main(bokeh_id):
+    print("Hello, Bokeh!")
     figure = bokeh.plotting.figure(sizing_mode="stretch_both", match_aspect=True)
     vertical_line(figure)
-    bokeh.plotting.show(figure)
+
+    if bokeh_id == '__main__':
+        bokeh.plotting.show(figure)
+    else:
+        bokeh.io.curdoc().add_root(figure)
 
 def vertical_line(figure):
     """Make CustomJS callback to draw vertical line centered on mouse"""
@@ -59,5 +65,4 @@ def windy_forest(figure):
     figure.add_tools(hover_tool)
 
 
-if __name__ == "__main__":
-    main()
+main(__name__)
