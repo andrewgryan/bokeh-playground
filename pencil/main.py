@@ -27,8 +27,10 @@ def vertical_line(figure):
         // Get access to HoverTool data
         var geometry = cb_data['geometry'];
 
-        data['x'].push(geometry.x);
-        data['y'].push(geometry.y);
+        console.log(figure);
+        data['x'] = [geometry.x, geometry.x];
+        data['y'] = [figure.attributes.y_range.attributes.start,
+                     figure.attributes.y_range.attributes.end];
 
         // Update plot relative to updated ColumnDataSource
         source.change.emit();
