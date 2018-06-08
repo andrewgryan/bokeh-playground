@@ -80,6 +80,13 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         let right_x;
         let mouse_x = cb_data.geometry.x;
         let previous_mouse_x = shared_mouse.data.x[0];
+        if (mouse_x > previous_mouse_x) {
+            left_x = previous_mouse_x;
+            right_x = mouse_x;
+        } else {
+            left_x = mouse_x;
+            right_x = previous_mouse_x;
+        }
 
         // Update alpha pseudo-2D and RGBA pseudo-3D arrays
         let pixel_x;
@@ -87,19 +94,14 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         let alpha_index;
         let image_alpha_index;
         let dy = dw / nj;
+        let skip = 0;
         for (let j=0; j<nj; j++) {
             pixel_x = x + (j * dy);
 
             // Optimised selection of columns between mouse events
-            if (mouse_x > previous_mouse_x) {
-                left_x = previous_mouse_x;
-                right_x = mouse_x;
-            } else {
-                left_x = mouse_x;
-                right_x = previous_mouse_x;
-            }
             if ((pixel_x > right_x) || (pixel_x < left_x)) {
                 // pixel outside current and previous mouse positions
+                skip += 1;
                 continue;
             }
 
@@ -119,7 +121,11 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
                source.data["image"][0][image_alpha_index] = alpha;
             }
         }
-        source.change.emit();
+        if (skip === nj) {
+            console.log("all data skipped");
+        } else {
+            source.change.emit();
+        }
 
         // Update mouse position
         shared_mouse.data.x[0] = mouse_x;
