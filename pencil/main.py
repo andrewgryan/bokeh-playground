@@ -18,12 +18,43 @@ def main(bokeh_id):
 def windy_forest(figure):
     left_renderer = figure.rect([1, 2, 3], [1, 2, 3], width=1, height=1,
                                 color="blue")
-    right_renderer = figure.rect([1, 2, 3], [3, 2, 1], width=0.5, height=0.5,
+    right_source = bokeh.models.ColumnDataSource({
+        "x": [1, 2, 3],
+        "y": [3, 2, 1],
+        "width": [0.5, 0.5, 0.5],
+        "alpha": [1, 1, 1]
+    })
+    right_renderer = figure.rect(x="x", y="y", width="width", height=0.5,
                                  color="red",
-                                 hover_alpha=0.)
+                                 alpha="alpha",
+                                 source=right_source)
+    vertical_line(figure)
+
+    # Hide anything to the left of pointer
+    callback = bokeh.models.callbacks.CustomJS(args=dict(source=right_source), code="""
+        let x = source.data["x"];
+        let width = source.data["width"];
+        let mouse_x = cb_data.geometry.x;
+        let alpha = []
+        for (let i=0; i<x.length; i++) {
+            if ((x[i] + (width[i] / 2)) < mouse_x) {
+               alpha.push(0);
+            } else {
+               alpha.push(1);
+            }
+        }
+        console.log(alpha);
+        source.data.alpha = alpha;
+        source.change.emit();
+    """)
+    hover_tool = bokeh.models.HoverTool(callback=callback)
+    figure.add_tools(hover_tool)
+
+
+def vertical_line(figure):
+    """Add vertical Span that follows mouse pointer"""
     span = bokeh.models.Span(location=0, dimension='height', line_color='black', line_width=1)
     figure.renderers.append(span)
-
     callback = bokeh.models.callbacks.CustomJS(args=dict(span=span), code="""
         span.location = cb_data.geometry.x;
     """)
