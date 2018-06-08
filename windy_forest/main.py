@@ -32,25 +32,37 @@ def windy_images(figure):
                              dw=10,
                              dh=10,
                              source=source)
-    hover_tool = hover_tool_image_hide(source, shape)
+    hover_tool = hover_tool_image_hide(source, shape, mode="show_right")
     figure.add_tools(hover_tool)
 
     # Right image
-    right = figure.image_rgba([imageio.imread("wind.png")[::-1, :, :]],
+    wind_rgba = imageio.imread("wind.png")[::-1, :, :]
+    ni, nj, _ = wind_rgba.shape
+    shape = (ni, nj)
+    source = bokeh.models.ColumnDataSource({
+            "image": [wind_rgba],
+            "original_alpha": [np.copy(wind_rgba[:, :, -1])]
+    })
+    right = figure.image_rgba(image="image",
                               x=0,
                               y=0,
                               dw=10,
-                              dh=10)
+                              dh=10,
+                              source=source)
+    hover_tool = hover_tool_image_hide(source, shape, mode="show_left")
+    figure.add_tools(hover_tool)
+
+    # VLine
     vertical_line(figure)
 
-def hover_tool_image_hide(source, shape, side="left"):
+def hover_tool_image_hide(source, shape, mode="hide_right"):
     """Hide anything to the left/right of pointer
 
     At the moment this is achieved through the use of CustomJS and
     alpha values. A more complete solution would work on the canvas
     itself
     """
-    code = """
+    code_template = """
         // Hard-coded values for now
         let x = 0;
         let dw = 10;
@@ -68,23 +80,31 @@ def hover_tool_image_hide(source, shape, side="left"):
         let alpha;
         let alpha_index;
         let image_alpha_index;
-        let dx = dw / ni;
-        for (let i=0; i<ni; i++) {
-            pixel_x = x + (i * dx);
-            for (let j=0; j<nj; j++) {
+        let dy = dw / nj;
+        for (let j=0; j<nj; j++) {
+            pixel_x = x + (j * dy);
+            for (let i=0; i<ni; i++) {
                 alpha_index = (nj * i) + j;
+                original_alpha_value = original_alpha[alpha_index];
+                if (original_alpha_value == 0) {
+                    continue;
+                }
                 image_alpha_index = (4 * alpha_index) + 3;
-                if (mouse_x < pixel_x) {
-                   alpha = 0;
+                if (%s) {
+                   alpha = original_alpha_value;
                 } else {
-                   alpha = original_alpha[alpha_index];
+                   alpha = 0;
                 }
                source.data["image"][0][image_alpha_index] = alpha;
             }
         }
-        console.log("update finished");
         source.change.emit();
     """
+    if mode == "show_left":
+        show_logic = "pixel_x < mouse_x"
+    else:
+        show_logic = "pixel_x > mouse_x"
+    code = code_template % show_logic
     callback = bokeh.models.callbacks.CustomJS(args=dict(source=source,
                                                          shape=shape),
                                                code=code)
