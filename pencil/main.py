@@ -27,8 +27,7 @@ def windy_forest(figure):
     callback = bokeh.models.callbacks.CustomJS(args=dict(span=span), code="""
         span.location = cb_data.geometry.x;
     """)
-    hover_tool = bokeh.models.HoverTool(callback=callback,
-                                        mode="vline")
+    hover_tool = bokeh.models.HoverTool(callback=callback)
     figure.add_tools(hover_tool)
 
 
