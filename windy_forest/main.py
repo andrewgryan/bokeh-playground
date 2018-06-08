@@ -36,7 +36,7 @@ def windy_images(figure):
     figure.add_tools(hover_tool)
 
     # Right image
-    wind_rgba = imageio.imread("wind.png")[::-1, :, :]
+    wind_rgba = imageio.imread("windmill.png")[::-1, :, :]
     ni, nj, _ = wind_rgba.shape
     shape = (ni, nj)
     source = bokeh.models.ColumnDataSource({
