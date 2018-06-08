@@ -28,27 +28,38 @@ def windy_forest(figure):
                                  color="red",
                                  alpha="alpha",
                                  source=right_source)
+    hover_tool = hover_tool_hide_left(right_source)
+    figure.add_tools(hover_tool)
     vertical_line(figure)
 
-    # Hide anything to the left of pointer
-    callback = bokeh.models.callbacks.CustomJS(args=dict(source=right_source), code="""
+def hover_tool_hide_left(source):
+    """Hide anything to the left of pointer
+
+    At the moment this is achieved through the use of CustomJS and
+    alpha values. A more complete solution would work on the canvas
+    itself
+    """
+    callback = bokeh.models.callbacks.CustomJS(args=dict(source=source), code="""
+        let x_left, x_right;
         let x = source.data["x"];
         let width = source.data["width"];
         let mouse_x = cb_data.geometry.x;
-        let alpha = []
+        let alpha = [];
         for (let i=0; i<x.length; i++) {
-            if ((x[i] + (width[i] / 2)) < mouse_x) {
+            x_left = x[i] - (width[i] / 2);
+            x_right = x[i] + (width[i] / 2);
+            if (x_right < mouse_x) {
+               alpha.push(0);
+            } else if ((x_left < mouse_x) & (mouse_x < x_right)) {
                alpha.push(0);
             } else {
                alpha.push(1);
             }
         }
-        console.log(alpha);
         source.data.alpha = alpha;
         source.change.emit();
     """)
-    hover_tool = bokeh.models.HoverTool(callback=callback)
-    figure.add_tools(hover_tool)
+    return bokeh.models.HoverTool(callback=callback)
 
 
 def vertical_line(figure):
