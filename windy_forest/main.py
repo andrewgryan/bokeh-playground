@@ -63,9 +63,6 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
     itself
     """
     code_template = """
-        // Previous mouse position
-        console.log('previous mouse-x:', shared_mouse.data.x[0]);
-
         // Hard-coded values for now
         let x = 0;
         let dw = 10;
@@ -79,6 +76,9 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         let left_x;
         let right_x;
         let mouse_x = cb_data.geometry.x;
+        if (!isFinite(mouse_x)) {
+            return;
+        }
         let previous_mouse_x = shared_mouse.data.x[0];
         if (mouse_x > previous_mouse_x) {
             left_x = previous_mouse_x;
