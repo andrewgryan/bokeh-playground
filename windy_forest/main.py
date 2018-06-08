@@ -63,6 +63,9 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
     itself
     """
     code_template = """
+        // Previous mouse position
+        console.log('previous mouse-x:', shared_mouse.data.x[0]);
+
         // Hard-coded values for now
         let x = 0;
         let dw = 10;
@@ -72,8 +75,11 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         let nj = shape[1];
         let original_alpha = source.data.original_alpha[0];
 
-        // Mouse position
+        // Mouse position(s)
+        let left_x;
+        let right_x;
         let mouse_x = cb_data.geometry.x;
+        let previous_mouse_x = shared_mouse.data.x[0];
 
         // Update alpha pseudo-2D and RGBA pseudo-3D arrays
         let pixel_x;
@@ -81,9 +87,24 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         let alpha_index;
         let image_alpha_index;
         let dy = dw / nj;
-        for (let i=0; i<ni; i++) {
-            for (let j=0; j<nj; j++) {
-                pixel_x = x + (j * dy);
+        for (let j=0; j<nj; j++) {
+            pixel_x = x + (j * dy);
+
+            // Optimised selection of columns between mouse events
+            if (mouse_x > previous_mouse_x) {
+                left_x = previous_mouse_x;
+                right_x = mouse_x;
+            } else {
+                left_x = mouse_x;
+                right_x = previous_mouse_x;
+            }
+            if ((pixel_x > right_x) || (pixel_x < left_x)) {
+                // pixel outside current and previous mouse positions
+                continue;
+            }
+
+            // Ordinary loop logic
+            for (let i=0; i<ni; i++) {
                 alpha_index = (nj * i) + j;
                 original_alpha_value = original_alpha[alpha_index];
                 if (original_alpha_value == 0) {
@@ -99,14 +120,19 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
             }
         }
         source.change.emit();
+
+        // Update mouse position
+        shared_mouse.data.x[0] = mouse_x;
     """
     if mode == "show_left":
         show_logic = "pixel_x < mouse_x"
     else:
         show_logic = "pixel_x > mouse_x"
     code = code_template % show_logic
+    shared_mouse = bokeh.models.ColumnDataSource(dict(x=[0]))
     callback = bokeh.models.callbacks.CustomJS(args=dict(source=source,
-                                                         shape=shape),
+                                                         shape=shape,
+                                                         shared_mouse=shared_mouse),
                                                code=code)
     return bokeh.models.HoverTool(callback=callback)
 
