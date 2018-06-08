@@ -81,9 +81,9 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         let alpha_index;
         let image_alpha_index;
         let dy = dw / nj;
-        for (let j=0; j<nj; j++) {
-            pixel_x = x + (j * dy);
-            for (let i=0; i<ni; i++) {
+        for (let i=0; i<ni; i++) {
+            for (let j=0; j<nj; j++) {
+                pixel_x = x + (j * dy);
                 alpha_index = (nj * i) + j;
                 original_alpha_value = original_alpha[alpha_index];
                 if (original_alpha_value == 0) {
