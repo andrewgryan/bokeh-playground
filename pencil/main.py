@@ -21,11 +21,14 @@ def windy_forest(figure):
     right_renderer = figure.rect([1, 2, 3], [3, 2, 1], width=0.5, height=0.5,
                                  color="red",
                                  hover_alpha=0.)
-    callback = bokeh.models.callbacks.CustomJS(args=dict(figure=figure,
-                                                         renderer=right_renderer), code="""
-        console.log(renderer);
+    span = bokeh.models.Span(location=0, dimension='height', line_color='black', line_width=1)
+    figure.renderers.append(span)
+
+    callback = bokeh.models.callbacks.CustomJS(args=dict(span=span), code="""
+        span.location = cb_data.geometry.x;
     """)
-    hover_tool = bokeh.models.HoverTool(callback=callback)
+    hover_tool = bokeh.models.HoverTool(callback=callback,
+                                        mode="vline")
     figure.add_tools(hover_tool)
 
 
