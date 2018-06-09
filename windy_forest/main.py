@@ -53,7 +53,7 @@ def windy_images(figure):
     figure.add_tools(hover_tool)
 
     # VLine
-    vertical_line(figure)
+    vertical_line(figure, location=10)
 
 def hover_tool_image_hide(source, shape, mode="hide_right"):
     """Hide anything to the left/right of pointer
@@ -79,7 +79,8 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         if (!isFinite(mouse_x)) {
             return;
         }
-        let previous_mouse_x = shared_mouse.data.x[0];
+        let previous_mouse_x = shared.data.mouse_x[0];
+        let first_time = shared.data.first_time[0]
         if (mouse_x > previous_mouse_x) {
             left_x = previous_mouse_x;
             right_x = mouse_x;
@@ -99,10 +100,13 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
             pixel_x = x + (j * dy);
 
             // Optimised selection of columns between mouse events
-            if ((pixel_x > right_x) || (pixel_x < left_x)) {
-                // pixel outside current and previous mouse positions
-                skip += 1;
-                continue;
+            // note: feature turned off during first paint
+            if (!first_time) {
+                if ((pixel_x > right_x) || (pixel_x < left_x)) {
+                    // pixel outside current and previous mouse positions
+                    skip += 1;
+                    continue;
+                }
             }
 
             // Ordinary loop logic
@@ -127,18 +131,19 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
             source.change.emit();
         }
 
-        // Update mouse position
-        shared_mouse.data.x[0] = mouse_x;
+        // Update shared data
+        shared.data.mouse_x[0] = mouse_x;
+        shared.data.first_time[0] = false;
     """
     if mode == "show_left":
         show_logic = "pixel_x < mouse_x"
     else:
         show_logic = "pixel_x > mouse_x"
     code = code_template % show_logic
-    shared_mouse = bokeh.models.ColumnDataSource(dict(x=[0]))
+    shared = bokeh.models.ColumnDataSource(dict(mouse_x=[0], first_time=[True]))
     callback = bokeh.models.callbacks.CustomJS(args=dict(source=source,
                                                          shape=shape,
-                                                         shared_mouse=shared_mouse),
+                                                         shared=shared),
                                                code=code)
     return bokeh.models.HoverTool(callback=callback)
 
@@ -209,9 +214,9 @@ def hover_tool_hide(source, side="left"):
     return bokeh.models.HoverTool(callback=callback)
 
 
-def vertical_line(figure):
+def vertical_line(figure, location=0):
     """Add vertical Span that follows mouse pointer"""
-    span = bokeh.models.Span(location=0, dimension='height', line_color='black', line_width=1)
+    span = bokeh.models.Span(location=location, dimension='height', line_color='black', line_width=1)
     figure.renderers.append(span)
     callback = bokeh.models.callbacks.CustomJS(args=dict(span=span), code="""
         span.location = cb_data.geometry.x;
