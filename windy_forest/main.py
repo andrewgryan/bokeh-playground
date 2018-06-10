@@ -20,8 +20,6 @@ def main(bokeh_id):
 def windy_images(figure):
     # Left image
     forest_rgba = imageio.imread("forest.png")[::-1, :, :]
-    ni, nj, _ = forest_rgba.shape
-    shape = (ni, nj)
     source = bokeh.models.ColumnDataSource({
             "image": [forest_rgba],
             "original_alpha": [np.copy(forest_rgba[:, :, -1])]
@@ -32,13 +30,11 @@ def windy_images(figure):
                              dw=10,
                              dh=10,
                              source=source)
-    hover_tool = hover_tool_image_hide(source, shape, mode="show_right")
+    hover_tool = hover_tool_image_hide(source, mode="show_right")
     figure.add_tools(hover_tool)
 
     # Right image
     wind_rgba = imageio.imread("windmill.png")[::-1, :, :]
-    ni, nj, _ = wind_rgba.shape
-    shape = (ni, nj)
     source = bokeh.models.ColumnDataSource({
             "image": [wind_rgba],
             "original_alpha": [np.copy(wind_rgba[:, :, -1])]
@@ -49,13 +45,13 @@ def windy_images(figure):
                               dw=10,
                               dh=10,
                               source=source)
-    hover_tool = hover_tool_image_hide(source, shape, mode="show_left")
+    hover_tool = hover_tool_image_hide(source, mode="show_left")
     figure.add_tools(hover_tool)
 
     # VLine
     vertical_line(figure, location=10)
 
-def hover_tool_image_hide(source, shape, mode="hide_right"):
+def hover_tool_image_hide(source, mode="hide_right"):
     """Hide anything to the left/right of pointer
 
     At the moment this is achieved through the use of CustomJS and
@@ -68,13 +64,14 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         let dw = 10;
 
         // ColumnDataSource values
-        let ni = shape[0];
-        let nj = shape[1];
         let original_alpha = source.data.original_alpha[0];
 
         // Shared data
         let previous_mouse_x = shared.data.mouse_x[0];
         let first_time = shared.data.first_time[0]
+        let shape = shared.data.shape[0];
+        let ni = shape[0];
+        let nj = shape[1];
 
         // Mouse position(s)
         let left_x;
@@ -141,9 +138,15 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
     else:
         show_logic = "pixel_x > mouse_x"
     code = code_template % show_logic
-    shared = bokeh.models.ColumnDataSource(dict(mouse_x=[0], first_time=[True]))
+
+    # Shared data needed to implement slider
+    ni, nj, _ = source.data["image"][0].shape
+    shape = (ni, nj)
+    shared = bokeh.models.ColumnDataSource(dict(mouse_x=[0],
+                                                first_time=[True],
+                                                shape=[shape]))
+
     callback = bokeh.models.callbacks.CustomJS(args=dict(source=source,
-                                                         shape=shape,
                                                          shared=shared),
                                                code=code)
     return bokeh.models.HoverTool(callback=callback)
