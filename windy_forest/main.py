@@ -72,6 +72,10 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         let nj = shape[1];
         let original_alpha = source.data.original_alpha[0];
 
+        // Shared data
+        let previous_mouse_x = shared.data.mouse_x[0];
+        let first_time = shared.data.first_time[0]
+
         // Mouse position(s)
         let left_x;
         let right_x;
@@ -79,8 +83,6 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
         if (!isFinite(mouse_x)) {
             return;
         }
-        let previous_mouse_x = shared.data.mouse_x[0];
-        let first_time = shared.data.first_time[0]
         if (mouse_x > previous_mouse_x) {
             left_x = previous_mouse_x;
             right_x = mouse_x;
@@ -125,9 +127,8 @@ def hover_tool_image_hide(source, shape, mode="hide_right"):
                source.data["image"][0][image_alpha_index] = alpha;
             }
         }
-        if (skip === nj) {
-            console.log("all data skipped");
-        } else {
+        if (skip !== nj) {
+            // Some columns need to be painted
             source.change.emit();
         }
 
