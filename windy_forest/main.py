@@ -20,10 +20,7 @@ def main(bokeh_id):
 def windy_images(figure):
     # Left image
     forest_rgba = imageio.imread("forest.png")[::-1, :, :]
-    source = bokeh.models.ColumnDataSource({
-            "image": [forest_rgba],
-            "original_alpha": [np.copy(forest_rgba[:, :, -1])]
-    })
+    source = bokeh.models.ColumnDataSource(dict(image=[forest_rgba]))
     left = figure.image_rgba(image="image",
                              x=0,
                              y=0,
@@ -35,10 +32,7 @@ def windy_images(figure):
 
     # Right image
     wind_rgba = imageio.imread("windmill.png")[::-1, :, :]
-    source = bokeh.models.ColumnDataSource({
-            "image": [wind_rgba],
-            "original_alpha": [np.copy(wind_rgba[:, :, -1])]
-    })
+    source = bokeh.models.ColumnDataSource(dict(image=[wind_rgba]))
     right = figure.image_rgba(image="image",
                               x=0,
                               y=0,
@@ -63,10 +57,8 @@ def hover_tool_image_hide(source, mode="hide_right"):
         let x = 0;
         let dw = 10;
 
-        // ColumnDataSource values
-        let original_alpha = source.data.original_alpha[0];
-
         // Shared data
+        let original_alpha = shared.data.original_alpha[0];
         let previous_mouse_x = shared.data.mouse_x[0];
         let first_time = shared.data.first_time[0]
         let shape = shared.data.shape[0];
@@ -140,11 +132,14 @@ def hover_tool_image_hide(source, mode="hide_right"):
     code = code_template % show_logic
 
     # Shared data needed to implement slider
-    ni, nj, _ = source.data["image"][0].shape
+    rgba = source.data["image"][0]
+    original_alpha = np.copy(rgba[:, :, -1])
+    ni, nj, _ = rgba.shape
     shape = (ni, nj)
     shared = bokeh.models.ColumnDataSource(dict(mouse_x=[0],
                                                 first_time=[True],
-                                                shape=[shape]))
+                                                shape=[shape],
+                                                original_alpha=[original_alpha]))
 
     callback = bokeh.models.callbacks.CustomJS(args=dict(source=source,
                                                          shared=shared),
