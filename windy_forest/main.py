@@ -23,7 +23,6 @@ def main(bokeh_id):
 
 def slider_tool(figure, left_rgba, right_rgba):
     """SliderTool prototype"""
-    tools = []
     # Left image
     source = bokeh.models.ColumnDataSource(dict(image=[left_rgba]))
     left = figure.image_rgba(image="image",
@@ -32,8 +31,7 @@ def slider_tool(figure, left_rgba, right_rgba):
                              dw=10,
                              dh=10,
                              source=source)
-    tool = hover_tool_image_hide(source, mode="show_left")
-    tools.append(tool)
+    left_image_tool = hover_tool_image_hide(source, mode="show_left")
 
     # Right image
     source = bokeh.models.ColumnDataSource(dict(image=[right_rgba]))
@@ -43,16 +41,14 @@ def slider_tool(figure, left_rgba, right_rgba):
                               dw=10,
                               dh=10,
                               source=source)
-    tool = hover_tool_image_hide(source, mode="show_right")
-    tools.append(tool)
+    right_image_tool = hover_tool_image_hide(source, mode="show_right")
 
     # Hide right image initially
     source.data["image"][0][:, :, -1] = 0.
 
     # VLine
-    tool = vertical_line(figure, location=10)
-    tools.append(tool)
-    return tools
+    vertical_line_tool = vertical_line(figure, location=10)
+    return left_image_tool, right_image_tool, vertical_line_tool
 
 def hover_tool_image_hide(source, mode):
     """Hide anything to the left/right of pointer
