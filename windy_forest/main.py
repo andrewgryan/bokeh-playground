@@ -139,11 +139,9 @@ def hover_tool_image_hide(source, mode):
     # Shared data needed to implement slider
     rgba = source.data["image"][0]
     original_alpha = np.copy(rgba[:, :, -1])
-    ni, nj, _ = rgba.shape
-    shape = (ni, nj)
     shared = bokeh.models.ColumnDataSource(dict(mouse_x=[0],
                                                 first_time=[True],
-                                                shape=[shape],
+                                                shape=[rgba.shape],
                                                 original_alpha=[original_alpha]))
 
     callback = bokeh.models.callbacks.CustomJS(args=dict(source=source,
