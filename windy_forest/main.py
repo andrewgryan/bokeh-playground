@@ -13,7 +13,8 @@ def main(bokeh_id):
     # High-level user interface
     wind_rgba = imageio.imread("windmill.png")[::-1, :, :]
     forest_rgba = imageio.imread("forest.png")[::-1, :, :]
-    slider_tool(figure, wind_rgba, forest_rgba)
+    tools = slider_tool(figure, wind_rgba, forest_rgba)
+    figure.add_tools(*tools)
 
     if bokeh_id == '__main__':
         bokeh.plotting.show(figure)
@@ -22,6 +23,7 @@ def main(bokeh_id):
 
 def slider_tool(figure, left_rgba, right_rgba):
     """SliderTool prototype"""
+    tools = []
     # Left image
     source = bokeh.models.ColumnDataSource(dict(image=[left_rgba]))
     left = figure.image_rgba(image="image",
@@ -30,8 +32,8 @@ def slider_tool(figure, left_rgba, right_rgba):
                              dw=10,
                              dh=10,
                              source=source)
-    hover_tool = hover_tool_image_hide(source, mode="show_left")
-    figure.add_tools(hover_tool)
+    tool = hover_tool_image_hide(source, mode="show_left")
+    tools.append(tool)
 
     # Right image
     source = bokeh.models.ColumnDataSource(dict(image=[right_rgba]))
@@ -41,14 +43,16 @@ def slider_tool(figure, left_rgba, right_rgba):
                               dw=10,
                               dh=10,
                               source=source)
-    hover_tool = hover_tool_image_hide(source, mode="show_right")
-    figure.add_tools(hover_tool)
+    tool = hover_tool_image_hide(source, mode="show_right")
+    tools.append(tool)
 
     # Hide right image initially
     source.data["image"][0][:, :, -1] = 0.
 
     # VLine
-    vertical_line(figure, location=10)
+    tool = vertical_line(figure, location=10)
+    tools.append(tool)
+    return tools
 
 def hover_tool_image_hide(source, mode):
     """Hide anything to the left/right of pointer
@@ -180,7 +184,8 @@ def windy_forest(figure):
                                  source=right_source)
     hover_tool = hover_tool_hide(right_source, side="left")
     figure.add_tools(hover_tool)
-    vertical_line(figure)
+    vline_tool = vertical_line(figure)
+    figure.add_tools(vline_tool)
 
 def hover_tool_hide(source, side="left"):
     """Hide anything to the left/right of pointer
@@ -223,8 +228,7 @@ def vertical_line(figure, location=0):
     callback = bokeh.models.callbacks.CustomJS(args=dict(span=span), code="""
         span.location = cb_data.geometry.x;
     """)
-    hover_tool = bokeh.models.HoverTool(callback=callback)
-    figure.add_tools(hover_tool)
+    return bokeh.models.HoverTool(callback=callback)
 
 
 main(__name__)
