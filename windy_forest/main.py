@@ -10,42 +10,47 @@ def main(bokeh_id):
     """Main program"""
     figure = bokeh.plotting.figure(sizing_mode="stretch_both", match_aspect=True)
 
-    windy_images(figure)
+    # High-level user interface
+    wind_rgba = imageio.imread("windmill.png")[::-1, :, :]
+    forest_rgba = imageio.imread("forest.png")[::-1, :, :]
+    slider_tool(figure, wind_rgba, forest_rgba)
 
     if bokeh_id == '__main__':
         bokeh.plotting.show(figure)
     else:
         bokeh.io.curdoc().add_root(figure)
 
-def windy_images(figure):
+def slider_tool(figure, left_rgba, right_rgba):
+    """SliderTool prototype"""
     # Left image
-    forest_rgba = imageio.imread("forest.png")[::-1, :, :]
-    source = bokeh.models.ColumnDataSource(dict(image=[forest_rgba]))
+    source = bokeh.models.ColumnDataSource(dict(image=[left_rgba]))
     left = figure.image_rgba(image="image",
                              x=0,
                              y=0,
                              dw=10,
                              dh=10,
                              source=source)
-    hover_tool = hover_tool_image_hide(source, mode="show_right")
+    hover_tool = hover_tool_image_hide(source, mode="show_left")
     figure.add_tools(hover_tool)
 
     # Right image
-    wind_rgba = imageio.imread("windmill.png")[::-1, :, :]
-    source = bokeh.models.ColumnDataSource(dict(image=[wind_rgba]))
+    source = bokeh.models.ColumnDataSource(dict(image=[right_rgba]))
     right = figure.image_rgba(image="image",
                               x=0,
                               y=0,
                               dw=10,
                               dh=10,
                               source=source)
-    hover_tool = hover_tool_image_hide(source, mode="show_left")
+    hover_tool = hover_tool_image_hide(source, mode="show_right")
     figure.add_tools(hover_tool)
+
+    # Hide right image initially
+    source.data["image"][0][:, :, -1] = 0.
 
     # VLine
     vertical_line(figure, location=10)
 
-def hover_tool_image_hide(source, mode="hide_right"):
+def hover_tool_image_hide(source, mode):
     """Hide anything to the left/right of pointer
 
     At the moment this is achieved through the use of CustomJS and
