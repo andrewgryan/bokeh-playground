@@ -30,7 +30,8 @@ def main(bokeh_id):
     figure = bokeh.plotting.figure(sizing_mode="stretch_both", match_aspect=True)
     figure.circle(x=[1, 2, 3], y=[1, 2, 3])
 
-    toggle = Toggle(None, None)
+    left_image, right_image = None, None
+    toggle = Toggle(left_image, right_image)
     button_group = bokeh.models.widgets.RadioButtonGroup(labels=["left", "right"],
                                                          active=0)
     button_group.on_change("active", toggle.on_change)
