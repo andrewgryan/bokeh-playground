@@ -31,7 +31,7 @@ def slider_tool(figure, left_rgba, right_rgba):
                              dw=10,
                              dh=10,
                              source=source)
-    left_image_tool = hover_tool_image_hide(source, mode="show_left")
+    left_image_tool = hover_image_tool(source, mode="show_left")
 
     # Right image
     source = bokeh.models.ColumnDataSource(dict(image=[right_rgba]))
@@ -41,7 +41,7 @@ def slider_tool(figure, left_rgba, right_rgba):
                               dw=10,
                               dh=10,
                               source=source)
-    right_image_tool = hover_tool_image_hide(source, mode="show_right")
+    right_image_tool = hover_image_tool(source, mode="show_right")
 
     # Hide right image initially
     source.data["image"][0][:, :, -1] = 0.
@@ -50,7 +50,7 @@ def slider_tool(figure, left_rgba, right_rgba):
     vertical_line_tool = vertical_line(figure, location=10)
     return left_image_tool, right_image_tool, vertical_line_tool
 
-def hover_tool_image_hide(source, mode):
+def hover_image_tool(source, mode):
     """Hide anything to the left/right of pointer
 
     At the moment this is achieved through the use of CustomJS and
