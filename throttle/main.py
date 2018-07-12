@@ -23,20 +23,37 @@ class throttle(object):
                 return fn(*args, **kwargs)
         return wrapper
 
-def zoom(attr, old, new):
-    stamp = dt.datetime.now().strftime("%H:%M:%S.%f")
-    print("normal", stamp)
 
-@throttle(100)
-def wrapped_zoom(attr, old, new):
-    stamp = dt.datetime.now().strftime("%H:%M:%S.%f")
-    print("wrapped", stamp)
+class Zoom(object):
+    def __init__(self, figure):
+        self.figure = figure
+        self.figure.x_range.on_change("start", self.on_change_x)
+        self.figure.x_range.on_change("end", self.on_change_x)
+        self.figure.y_range.on_change("start", self.on_change_y)
+        self.figure.y_range.on_change("end", self.on_change_y)
+
+    def on_change_x(self, attr, old, new):
+        self.render()
+
+    def on_change_y(self, attr, old, new):
+        self.render()
+
+    @throttle(700)
+    def render(self):
+        self.draw(self.figure.x_range.start,
+                  self.figure.x_range.end,
+                  self.figure.y_range.start,
+                  self.figure.y_range.end)
+
+    def draw(self, x_min, x_max, y_min, y_max):
+        stamp = dt.datetime.now().strftime("%H:%M:%S.%f")
+        print(stamp, x_min, x_max, y_min, y_max)
+
 
 def main(bokeh_id):
     figure = bokeh.plotting.figure(sizing_mode="stretch_both",
                                    match_aspect=True)
-    figure.x_range.on_change("start", zoom)
-    figure.x_range.on_change("start", wrapped_zoom)
+    zoom = Zoom(figure)
 
     figure.circle([1, 2, 3], [1, 2, 3])
 
