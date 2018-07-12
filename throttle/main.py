@@ -6,8 +6,9 @@ import bokeh.layouts
 import datetime as dt
 from functools import wraps
 class throttle(object):
-    def __init__(self, seconds=0):
-        self.period = dt.timedelta(seconds=seconds,
+    def __init__(self, milliseconds=0, seconds=0):
+        self.period = dt.timedelta(milliseconds=milliseconds,
+                                   seconds=seconds,
                                    minutes=0,
                                    hours=0)
         self.last_call = dt.datetime.min
@@ -23,11 +24,13 @@ class throttle(object):
         return wrapper
 
 def zoom(attr, old, new):
-    print("ordinary", attr, old, new)
+    stamp = dt.datetime.now().strftime("%H:%M:%S.%f")
+    print("normal", stamp)
 
-@throttle(1)
+@throttle(100)
 def wrapped_zoom(attr, old, new):
-    print("wrapped", attr, old, new)
+    stamp = dt.datetime.now().strftime("%H:%M:%S.%f")
+    print("wrapped", stamp)
 
 def main(bokeh_id):
     figure = bokeh.plotting.figure(sizing_mode="stretch_both",
