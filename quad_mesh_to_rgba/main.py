@@ -12,32 +12,25 @@ def main(bokeh_id):
     figure = bokeh.plotting.figure(sizing_mode="stretch_both", match_aspect=True)
 
     # Numpy/iris.Cube domain
-    values = np.arange(100).reshape(4, 25)
+    ni, nj = 100, 100
+    values = np.arange(ni*nj).reshape(ni, nj)
 
     # Matplotlib domain
     quad_mesh = plt.pcolormesh(values)
+    plt.savefig("quad_mesh.png")
 
     # Matplotlib to Bokeh
     rgba = quad_mesh.to_rgba(quad_mesh.get_array(),
-                             bytes=True)
+                             bytes=True).reshape((ni, nj, 4))
 
     # Bokeh domain
-    # values = np.zeros((4, 25), np.uint32)
-    # values = values.view(dtype=np.uint8).reshape((4, 25, 4))
-    # ni, nj = 4, 25
-    # for i in range(ni):
-    #     for j in range(nj):
-    #         r = (ni * j) + i
-    #         print(rgba[r])
-    #         values[i, j, :] = 255 * rgba[r]
-    values = rgba.reshape((4, 25, 4), order='F')
     source = bokeh.models.ColumnDataSource({
-        "image": [values]
+        "image": [rgba]
     })
     figure.image_rgba(x=0,
                       y=0,
-                      dw=1,
-                      dh=1,
+                      dw=nj,
+                      dh=ni,
                       image="image",
                       source=source)
 
