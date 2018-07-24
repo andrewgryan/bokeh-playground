@@ -3,16 +3,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import bokeh.io
 import bokeh.plotting
-import bokeh.models.callbacks
-import imageio
 
 
 def main(bokeh_id):
     """Main program"""
-    figure = bokeh.plotting.figure(sizing_mode="stretch_both", match_aspect=True)
+    figure = bokeh.plotting.figure(sizing_mode="stretch_both",
+                                   match_aspect=True)
 
     # Numpy/iris.Cube domain
-    ni, nj = 100, 100
+    ni, nj = 1000, 1000
     values = np.arange(ni*nj).reshape(ni, nj)
 
     # Matplotlib domain
