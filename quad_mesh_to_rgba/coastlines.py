@@ -10,7 +10,7 @@ figure = bokeh.plotting.figure(sizing_mode='stretch_both',
 
 # Struggling to find appropriate extent for cartopy feature
 # Left, right, bottom, top
-x0, x1, y0, y1 = (0, 21, 0, 10)
+x0, x1, y0, y1 = (0, 21, 0, 11)
 extent = x0, x1, y0, y1
 
 
@@ -62,8 +62,8 @@ mappable = plt.imshow(values, norm=norm)
 rgba = mappable.to_rgba(mappable.get_array(),
                         bytes=True).reshape(ni, nj, 4)
 figure.image_rgba(image=[rgba],
-                  x=nj + 1,
-                  y=0,
+                  x=nj - 1,
+                  y=1,
                   dh=ni,
                   dw=nj)
 
