@@ -7,6 +7,8 @@ bokeh_document = bokeh.plotting.curdoc()
 
 # Figure root
 figure = bokeh.plotting.figure(name="figure",
+                               toolbar_location="above",
+                               sizing_mode="scale_both",
                                css_classes=["figure"])
 figure.circle([1, 2, 3], [1, 2, 3])
 bokeh_document.add_root(figure)
