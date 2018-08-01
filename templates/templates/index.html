@@ -1,0 +1,78 @@
+{#
+Renders Bokeh models into a basic .html file.
+
+:param title: value for ``<title>`` tags
+:type title: str
+
+:param plot_resources: typically the output of RESOURCES
+:type plot_resources: str
+
+:param plot_script: typically the output of PLOT_SCRIPT
+:type plot_script: str
+
+Users can customize the file output by providing their own Jinja2 template
+that accepts these same parameters.
+
+#}
+
+{% from macros import embed %}
+
+<!DOCTYPE html>
+<html lang="en">
+  {% block head %}
+  <head>
+    {% block inner_head %}
+      <meta charset="utf-8">
+      <title>{% block title %}{{ title | e if title else "Bokeh Plot" }}{% endblock %}</title>
+      {% block preamble %}{% endblock %}
+      {% block resources %}
+        {% block js_resources %}
+          {{ bokeh_css | indent(8) if bokeh_css }}
+        {% endblock %}
+        {% block css_resources %}
+          {{ bokeh_js | indent(8) if bokeh_js }}
+        {% endblock %}
+      {% endblock %}
+      {% block postamble %}{% endblock %}
+    {% endblock %}
+
+    <style>
+        body {
+            margin: 0;
+        }
+        .navbar {
+            overflow: hidden;
+            background-color: #333;
+            position: fixed;
+            top: 0;
+            width: 100%;
+        }
+        .main {
+            margin-top: 60px;
+        }
+        .figure {
+            width: 100%;
+            z-index: -1;
+        }
+    </style>
+  </head>
+  {% endblock %}
+  {% block body %}
+  <body>
+    {% block inner_body %}
+      {% block contents %}
+        {% for doc in docs %}
+          {{ embed(doc) if doc.elementid }}
+          <div class="navbar">
+            {{ embed(roots.navbar) | indent(10) }}
+          </div>
+          <div class="main">
+            {{ embed(roots.figure) | indent(10) }}
+          </div>
+        {% endfor %}
+      {% endblock %}
+      {{ plot_script | indent(8) }}
+    {% endblock %}
+  </body>
+  {% endblock %}
+</html>
