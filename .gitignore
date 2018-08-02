@@ -1,2 +1,4 @@
+*.html
+*.png
 *.swp
 __pycache__
