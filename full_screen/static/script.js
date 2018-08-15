@@ -22,6 +22,6 @@ let load = function() {
             window.dispatchEvent(new Event('resize'));
         }
     };
-    intervalID = setInterval(setUp, 1000);
+    intervalID = setInterval(setUp, 50);
 };
 window.addEventListener('load', load);
