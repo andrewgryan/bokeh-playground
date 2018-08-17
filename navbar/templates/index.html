@@ -45,12 +45,15 @@ that accepts these same parameters.
         }
         .navbar {
             overflow: hidden;
-            background-color: #333;
+            background-color: white;
             position: fixed;
             top: 0;
             width: 100%;
             z-index: 2;
             opacity: 0.8;
+        }
+        .forest-nav {
+            border: 0px solid green;
         }
         .main {
             height: 100%;
@@ -58,6 +61,19 @@ that accepts these same parameters.
         }
         .figure {
             width: 100%;
+        }
+
+        /* Bokeh CSS reset */
+        .bk-root .bk-widget-box {
+            padding: 0;
+        }
+        .bk-root .bk-widget {
+            margin-top: 5px;
+            margin-left: 5px;
+        }
+        .bk-root .bk-bs-btn {
+            padding: 0;
+            border-radius: 0;
         }
     </style>
   </head>
@@ -78,6 +94,16 @@ that accepts these same parameters.
       {% endblock %}
       {{ plot_script | indent(8) }}
     {% endblock %}
+
+    <script>
+        shrink = function() {
+            let els = document.getElementsByClassName("forest-nav");
+            for (let i=0; i<els.length; i++) {
+                let el = els[i];
+                el.style.height = "auto";
+            }
+        };
+    </script>
   </body>
   {% endblock %}
 </html>

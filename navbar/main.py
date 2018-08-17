@@ -18,5 +18,6 @@ widgets = [Button(label="Next"),
            Button(label="Previous"),
            Dropdown()]
 navbar = bokeh.layouts.row(*widgets,
-                           name="navbar")
+                           name="navbar",
+                           css_classes=["forest-nav"])
 bokeh_document.add_root(navbar)
