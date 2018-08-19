@@ -1,0 +1,16 @@
+html {
+    font-family: sans-serif;
+    font-weight: 100;
+}
+
+.bk-root .bk-widget {
+    margin-top: 0;
+}
+
+.bk-root .bk-widget button {
+    min-width: 0;
+    border-radius: 20px;
+    float: left;
+    margin-left: 10px;
+    padding: 2px 20px;
+}
