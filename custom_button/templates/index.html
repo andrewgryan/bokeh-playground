@@ -2,3 +2,21 @@
 {% block postamble %}
     <link rel="stylesheet" href="custom_button/static/css/reset.css">
 {% endblock %}
+{% block contents %}
+    {% for doc in docs %}
+        <div class="forest-top">
+            {% for root in doc.roots %}
+                {% if root.name == "top" %}
+                    {{ embed(root) }}
+                {% endif %}
+            {% endfor %}
+        </div>
+        <div class="forest-bottom">
+            {% for root in doc.roots %}
+                {% if root.name == "bottom" %}
+                    {{ embed(root) }}
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endfor %}
+{% endblock %}
