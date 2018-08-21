@@ -1,4 +1,10 @@
 {% extends base %}
+{% block preamble %}
+    {{ super() }}
+    <script src="custom_button/static/js/script.js"></script>
+{% endblock %}
+{% block js_resources %}
+{% endblock %}
 {% block postamble %}
     <link rel="stylesheet" href="custom_button/static/css/reset.css">
 {% endblock %}
