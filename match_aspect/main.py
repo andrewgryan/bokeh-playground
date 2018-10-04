@@ -20,21 +20,49 @@ button.on_click(on_click)
 document.add_root(button)
 
 # Work-around to simulate rigid limits
-start = 0.9
-end = 3.1
-def on_click():
-    figure.x_range.start = start
-    figure.x_range.end = end
-    figure.x_range.bounds = 'auto'
+class FixedLimit(object):
+    def __init__(self, figure, start, end):
+        self.figure = figure
+        self._start = start
+        self._end = end
+        self.js_on_click = bokeh.models.CustomJS(args=dict(figure=figure,
+                                                           start=start,
+                                                           end=end), code="""
+                figure.x_range._initial_start = start;
+                figure.x_range._initial_end = end;
+        """)
+
+    @property
+    def start(self):
+        return self._start
+
+    @start.setter
+    def start(self, value):
+        self.js_on_click.args["start"] = value
+        self._start = value
+
+    @property
+    def end(self):
+        return self._end
+
+    @end.setter
+    def end(self, value):
+        self.js_on_click.args["end"] = value
+        self._end = value
+
+    def on_click(self):
+        self.figure.x_range.start = self.start
+        self.figure.x_range.end = self.end
+        self.figure.x_range.bounds = 'auto'
+
+fixed_limit = FixedLimit(figure, 0.5, 3.5)
+
 button = bokeh.models.Button(label="Fix limits")
-button.on_click(on_click)
-js_fix_limits = bokeh.models.CustomJS(args=dict(figure=figure,
-                                                _initial_start=start,
-                                                _initial_end=end), code="""
-        figure.x_range._initial_start = _initial_start;
-        figure.x_range._initial_end = _initial_end;
-""")
-button.js_on_click(js_fix_limits)
+button.on_click(fixed_limit.on_click)
+button.js_on_click(fixed_limit.js_on_click)
+
+fixed_limit.start = 0.1
+fixed_limit.end = 3.1
 
 document.add_root(button)
 document.add_root(figure)
