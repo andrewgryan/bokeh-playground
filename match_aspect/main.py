@@ -1,25 +1,36 @@
 import bokeh.plotting
+import bokeh.events
 
 document = bokeh.plotting.curdoc()
+source = bokeh.models.ColumnDataSource({
+    "x": [1, 2, 3],
+    "y": [2, 4, 6]
+})
 figure = bokeh.plotting.figure(match_aspect=True,
                                aspect_scale=1)
-figure.circle([1, 2, 3], [1, 2, 3])
+figure.circle(x="x", y="y", source=source)
 
-def callback():
-    print("attempting to set x/y to non-aspect limits")
-    figure.x_range.start = 0
-    figure.x_range.end = 2
+def on_click():
+    source.data = {
+        "x": [1, 2, 3, 20],
+        "y": [2, 4, 6, 20]
+    }
+button = bokeh.models.Button()
+button.on_click(on_click)
+document.add_root(button)
 
-def one_to_one():
-    print("attempting to set 1:1 ratio")
-    figure.x_range.start = 2
-    figure.x_range.end = 5
+# Work-around to simulate rigid limits
+def on_click():
+    figure.x_range.start = 0.9
+    figure.x_range.end = 3.1
+    figure.x_range.bounds = 'auto'
+button = bokeh.models.Button(label="Fix limits")
+button.on_click(on_click)
+js_fix_limits = bokeh.models.CustomJS(args=dict(figure=figure), code="""
+        figure.x_range._initial_start = 0.9;
+        figure.x_range._initial_end = 3.1;
+""")
+button.js_on_click(js_fix_limits)
 
-button_0 = bokeh.models.Button(label="unusual aspect ratio")
-button_0.on_click(callback)
-
-button_1 = bokeh.models.Button(label="1:1 aspect ratio")
-button_1.on_click(one_to_one)
-
-document.add_root(bokeh.layouts.row(button_0, button_1))
+document.add_root(button)
 document.add_root(figure)
