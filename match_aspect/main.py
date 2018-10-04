@@ -53,16 +53,17 @@ class FixedLimit(object):
     def on_click(self):
         self.figure.x_range.start = self.start
         self.figure.x_range.end = self.end
-        self.figure.x_range.bounds = 'auto'
+        if self.start is None and self.end is None:
+            bounds = None
+        else:
+            bounds = 'auto'
+        self.figure.x_range.bounds = bounds
 
-fixed_limit = FixedLimit(figure, 0.5, 3.5)
+fixed_limit = FixedLimit(figure, None, None)
 
 button = bokeh.models.Button(label="Fix limits")
 button.on_click(fixed_limit.on_click)
 button.js_on_click(fixed_limit.js_on_click)
-
-fixed_limit.start = 0.1
-fixed_limit.end = 3.1
 
 document.add_root(button)
 document.add_root(figure)
