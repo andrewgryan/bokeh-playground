@@ -1,6 +1,7 @@
 import bokeh.plotting
 import bokeh.events
 
+
 document = bokeh.plotting.curdoc()
 source = bokeh.models.ColumnDataSource({
     "x": [1, 2, 3],
@@ -9,6 +10,11 @@ source = bokeh.models.ColumnDataSource({
 figure = bokeh.plotting.figure(match_aspect=True,
                                aspect_scale=1)
 figure.circle(x="x", y="y", source=source)
+
+js_callback = bokeh.models.CustomJS(code="""
+    console.log('callback');
+""")
+figure.x_range.callback = js_callback
 
 def on_click():
     source.data = {
