@@ -3,32 +3,28 @@ import bokeh.models
 
 
 class Paragraph(object):
-    def __init__(self, text):
-        self.text = text
-        self.text.register(self)
-        self.widget = bokeh.models.widgets.Paragraph(text=text.value)
+    def __init__(self, stream):
+        stream.register(self)
+        self.widget = bokeh.models.widgets.Paragraph(text="")
 
-    def notify(self):
-        self.widget.text = self.text.value
+    def notify(self, value):
+        self.widget.text = value
 
 
 class Text(object):
     def __init__(self):
-        self.value = ""
         self.subscribers = []
 
     def register(self, subscriber):
         self.subscribers.append(subscriber)
 
     def plus(self):
-        self.value = "Plus"
         for subscriber in self.subscribers:
-            subscriber.notify()
+            subscriber.notify("Plus")
 
     def minus(self):
-        self.value = "Minus"
         for subscriber in self.subscribers:
-            subscriber.notify()
+            subscriber.notify("Minus")
 
 
 text = Text()
