@@ -50,14 +50,6 @@ class Scan(Stream):
         self.emit(self.state)
 
 
-class Numbers(Stream):
-    def plus(self):
-        self.emit(+1)
-
-    def minus(self):
-        self.emit(-1)
-
-
 def to_text(number):
     return "Number: {}".format(number)
 
@@ -65,16 +57,16 @@ def to_text(number):
 def add(a, b):
     return a + b
 
-numbers = Numbers()
+numbers = Stream()
 totals = Scan(numbers, 0, add)
 text = Map(totals, to_text)
 paragraph = Paragraph(text)
 
 plus_btn = bokeh.models.Button(label="+")
-plus_btn.on_click(numbers.plus)
+plus_btn.on_click(lambda: numbers.emit(+1))
 
 minus_btn = bokeh.models.Button(label="-")
-minus_btn.on_click(numbers.minus)
+minus_btn.on_click(lambda: numbers.emit(-1))
 
 document = bokeh.plotting.curdoc()
 document.add_root(bokeh.layouts.row(paragraph.widget, plus_btn, minus_btn))
