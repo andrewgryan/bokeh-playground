@@ -11,20 +11,24 @@ class Paragraph(object):
         self.widget.text = value
 
 
-class Text(object):
+class Stream(object):
     def __init__(self):
         self.subscribers = []
 
     def register(self, subscriber):
         self.subscribers.append(subscriber)
 
-    def plus(self):
+    def emit(self, value):
         for subscriber in self.subscribers:
-            subscriber.notify("Plus")
+            subscriber.notify(value)
+
+
+class Text(Stream):
+    def plus(self):
+        self.emit("Plus")
 
     def minus(self):
-        for subscriber in self.subscribers:
-            subscriber.notify("Minus")
+        self.emit("Minus")
 
 
 text = Text()
