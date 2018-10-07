@@ -23,22 +23,38 @@ class Stream(object):
             subscriber.notify(value)
 
 
-class Text(Stream):
+class Echo(Stream):
+    def notify(self, value):
+        self.emit(value)
+
+
+class Map(Stream):
+    def __init__(self, stream, transform):
+        stream.register(self)
+        self.transform = transform
+        super().__init__()
+
+    def notify(self, value):
+        self.emit(self.transform(value))
+
+
+class Numbers(Stream):
     def plus(self):
-        self.emit("Plus")
+        self.emit(+1)
 
     def minus(self):
-        self.emit("Minus")
+        self.emit(-1)
 
 
-text = Text()
+numbers = Numbers()
+text = Map(numbers, str)
 paragraph = Paragraph(text)
 
 plus_btn = bokeh.models.Button(label="+")
-plus_btn.on_click(text.plus)
+plus_btn.on_click(numbers.plus)
 
 minus_btn = bokeh.models.Button(label="-")
-minus_btn.on_click(text.minus)
+minus_btn.on_click(numbers.minus)
 
 document = bokeh.plotting.curdoc()
 document.add_root(bokeh.layouts.row(paragraph.widget, plus_btn, minus_btn))
