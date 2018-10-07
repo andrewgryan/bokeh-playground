@@ -3,9 +3,9 @@ import bokeh.models
 
 
 class Paragraph(object):
-    def __init__(self, stream):
+    def __init__(self, widget, stream):
+        self.widget = widget
         stream.register(self)
-        self.widget = bokeh.models.widgets.Paragraph(text="")
 
     def notify(self, value):
         self.widget.text = value
@@ -60,7 +60,8 @@ def add(a, b):
 numbers = Stream()
 totals = Scan(numbers, 0, add)
 text = Map(totals, to_text)
-paragraph = Paragraph(text)
+p = bokeh.models.widgets.Paragraph(text="")
+Paragraph(p, text)
 
 plus_btn = bokeh.models.Button(label="+")
 plus_btn.on_click(lambda: numbers.emit(+1))
@@ -69,4 +70,4 @@ minus_btn = bokeh.models.Button(label="-")
 minus_btn.on_click(lambda: numbers.emit(-1))
 
 document = bokeh.plotting.curdoc()
-document.add_root(bokeh.layouts.row(paragraph.widget, plus_btn, minus_btn))
+document.add_root(bokeh.layouts.row(p, plus_btn, minus_btn))
