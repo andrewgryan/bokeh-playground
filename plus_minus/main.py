@@ -38,6 +38,18 @@ class Map(Stream):
         self.emit(self.transform(value))
 
 
+class Scan(Stream):
+    def __init__(self, stream, initial, combine):
+        self.state = initial
+        self.combine = combine
+        stream.register(self)
+        super().__init__()
+
+    def notify(self, value):
+        self.state = self.combine(self.state, value)
+        self.emit(self.state)
+
+
 class Numbers(Stream):
     def plus(self):
         self.emit(+1)
@@ -46,8 +58,16 @@ class Numbers(Stream):
         self.emit(-1)
 
 
+def to_text(number):
+    return "Number: {}".format(number)
+
+
+def add(a, b):
+    return a + b
+
 numbers = Numbers()
-text = Map(numbers, str)
+totals = Scan(numbers, 0, add)
+text = Map(totals, to_text)
 paragraph = Paragraph(text)
 
 plus_btn = bokeh.models.Button(label="+")
