@@ -32,6 +32,22 @@ class Stream(object):
     def filter(self, criteria):
         return Filter(self, criteria)
 
+    def unique(self):
+        return Unique(self)
+
+    def log(self):
+        return Log(self)
+
+
+class Log(Stream):
+    def __init__(self, stream):
+        stream.register(self)
+        super().__init__()
+
+    def notify(self, value):
+        print(value)
+        self.emit(value)
+
 
 class Map(Stream):
     def __init__(self, stream, transform):
@@ -66,6 +82,20 @@ class Filter(Stream):
             self.emit(value)
 
 
+class Unique(Stream):
+    def __init__(self, stream):
+        stream.register(self)
+        super().__init__()
+
+    def notify(self, value):
+        if not hasattr(self, 'current'):
+            self.current = value
+            self.emit(value)
+        elif value != self.current:
+            self.current = value
+            self.emit(value)
+
+
 def to_text(number):
     return "Number: {}".format(number)
 
@@ -79,20 +109,21 @@ def format_time(time):
     return "{:%Y%m%d %H:%M}".format(time)
 
 
+def bounded_sum(minimum, maximum, total, value):
+    if (total + value) >= maximum:
+        return total
+    if (total + value) < minimum:
+        return total
+    return total + value
+
+
 def main():
     times = [dt.datetime(2018, 1, 1),
              dt.datetime(2018, 1, 2),
              dt.datetime(2018, 1, 3)]
-
     numbers = Stream()
-    def list_bounds(items, total, value):
-        if (total + value) >= len(items):
-            return total
-        if (total + value) < 0:
-            return total
-        return total + value
-    time_bounds = partial(list_bounds, times)
-    totals = numbers.scan(0, time_bounds)
+    totals = numbers.scan(0, partial(bounded_sum, 0, len(times)))
+    totals = totals.unique().log()
     text = totals.map(to_text)
     p = bokeh.models.widgets.Paragraph(text="")
     Paragraph(p, text)
