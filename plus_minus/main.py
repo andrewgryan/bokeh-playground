@@ -25,10 +25,8 @@ class Stream(object):
     def map(self, transform):
         return Map(self, transform)
 
-
-class Echo(Stream):
-    def notify(self, value):
-        self.emit(value)
+    def scan(self, initial, combine):
+        return Scan(self, initial, combine)
 
 
 class Map(Stream):
@@ -57,20 +55,22 @@ def to_text(number):
     return "Number: {}".format(number)
 
 
-def add(a, b):
-    return a + b
+def main():
+    numbers = Stream()
+    totals = numbers.scan(0, lambda x, y: x + y)
+    text = totals.map(to_text)
+    p = bokeh.models.widgets.Paragraph(text="")
+    Paragraph(p, text)
 
-numbers = Stream()
-totals = Scan(numbers, 0, add)
-text = totals.map(to_text)
-p = bokeh.models.widgets.Paragraph(text="")
-Paragraph(p, text)
+    plus_btn = bokeh.models.Button(label="+")
+    plus_btn.on_click(lambda: numbers.emit(+1))
 
-plus_btn = bokeh.models.Button(label="+")
-plus_btn.on_click(lambda: numbers.emit(+1))
+    minus_btn = bokeh.models.Button(label="-")
+    minus_btn.on_click(lambda: numbers.emit(-1))
 
-minus_btn = bokeh.models.Button(label="-")
-minus_btn.on_click(lambda: numbers.emit(-1))
+    document = bokeh.plotting.curdoc()
+    document.add_root(bokeh.layouts.row(p, plus_btn, minus_btn))
 
-document = bokeh.plotting.curdoc()
-document.add_root(bokeh.layouts.row(p, plus_btn, minus_btn))
+
+if __name__ == '__main__' or __name__.startswith("bk"):
+    main()
