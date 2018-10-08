@@ -117,6 +117,18 @@ def bounded_sum(minimum, maximum, total, value):
     return total + value
 
 
+def plus_button(stream):
+    btn = bokeh.models.Button(label="+")
+    btn.on_click(lambda: stream.emit(+1))
+    return btn
+
+
+def minus_button(stream):
+    btn = bokeh.models.Button(label="-")
+    btn.on_click(lambda: stream.emit(-1))
+    return btn
+
+
 def main():
     times = [dt.datetime(2018, 1, 1),
              dt.datetime(2018, 1, 2),
@@ -128,20 +140,25 @@ def main():
     p = bokeh.models.widgets.Paragraph(text="")
     Paragraph(p, text)
 
-    plus_btn = bokeh.models.Button(label="+")
-    plus_btn.on_click(lambda: numbers.emit(+1))
-
-    minus_btn = bokeh.models.Button(label="-")
-    minus_btn.on_click(lambda: numbers.emit(-1))
-
     time_getter = partial(to_time, times)
     text = totals.map(time_getter).map(format_time)
     current_p = bokeh.models.widgets.Paragraph(text="")
     current_date = Paragraph(current_p, text)
 
     document = bokeh.plotting.curdoc()
-    document.add_root(current_p)
-    document.add_root(bokeh.layouts.row(p, plus_btn, minus_btn))
+    document.add_root(bokeh.layouts.row(current_p, p))
+
+    plus_btn = plus_button(numbers)
+    minus_btn = minus_button(numbers)
+    document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
+
+    plus_btn = plus_button(numbers)
+    minus_btn = minus_button(numbers)
+    document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
+
+    plus_btn = plus_button(numbers)
+    minus_btn = minus_button(numbers)
+    document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
 
 
 if __name__ == '__main__' or __name__.startswith("bk"):
