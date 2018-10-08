@@ -22,6 +22,9 @@ class Stream(object):
         for subscriber in self.subscribers:
             subscriber.notify(value)
 
+    def map(self, transform):
+        return Map(self, transform)
+
 
 class Echo(Stream):
     def notify(self, value):
@@ -59,7 +62,7 @@ def add(a, b):
 
 numbers = Stream()
 totals = Scan(numbers, 0, add)
-text = Map(totals, to_text)
+text = totals.map(to_text)
 p = bokeh.models.widgets.Paragraph(text="")
 Paragraph(p, text)
 
