@@ -169,6 +169,14 @@ def combine_latest(*streams):
     return CombineLatest(*streams)
 
 
+def title(run_time, hours):
+    valid_time = real_time(run_time, hours)
+    return "\n".join([
+        "Run time: {:%Y-%m-%d %H:%M}".format(run_time),
+        "Forecast: {}".format(forecast_label(valid_time, hours))
+    ])
+
+
 def forecast_label(time, hours):
     return "{:%Y-%m-%d %H:%M} T{:+}".format(time, hours)
 
@@ -178,17 +186,19 @@ def real_time(run_time, hours):
 
 
 def main():
-    times = [dt.datetime(2018, 1, 1),
+    times = [dt.datetime(2018, 1, 1, 0),
+             dt.datetime(2018, 1, 1, 12),
              dt.datetime(2018, 1, 2),
-             dt.datetime(2018, 1, 3)]
+             dt.datetime(2018, 1, 2, 12),
+             dt.datetime(2018, 1, 3),
+             dt.datetime(2018, 1, 3, 12)]
     hours = [0, 3, 6, 9, 12, 15, 18, 21]
 
     time_index_p = bokeh.models.widgets.Paragraph(text="")
     time_p = bokeh.models.widgets.Paragraph(text="")
     hours_index_p = bokeh.models.widgets.Paragraph(text="")
     hours_p = bokeh.models.widgets.Paragraph(text="")
-    label_p = bokeh.models.widgets.Paragraph(text="")
-    real_time_p = bokeh.models.widgets.Paragraph(text="")
+    title_p = bokeh.models.widgets.PreText(text="")
     buttons = []
 
     # Functional reactive programming style UI
@@ -213,18 +223,14 @@ def main():
 
     stream = combine_latest(time_stream, hour_stream)
     stream = stream.filter(lambda args: any([a is None for a in args]))
-    forecasts = stream.map(lambda args: forecast_label(*args))
-    forecasts.subscribe(partial(render, label_p))
-
-    real_times = stream.map(lambda args: real_time(*args))
-    real_times.map(str).subscribe(partial(render, real_time_p))
+    titles = stream.map(lambda args: title(*args))
+    titles.subscribe(partial(render, title_p))
 
     time_clicks.emit(0)
     hour_clicks.emit(0)
 
     document = bokeh.plotting.curdoc()
-    document.add_root(bokeh.layouts.row(label_p))
-    document.add_root(bokeh.layouts.row(real_time_p))
+    document.add_root(bokeh.layouts.row(title_p))
     document.add_root(bokeh.layouts.row(time_index_p, time_p))
     document.add_root(bokeh.layouts.row(hours_index_p, hours_p))
     for plus_btn, minus_btn in buttons:
