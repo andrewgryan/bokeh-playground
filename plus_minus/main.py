@@ -3,15 +3,6 @@ import bokeh.models
 from functools import partial
 
 
-class Paragraph(object):
-    def __init__(self, widget, stream):
-        self.widget = widget
-        stream.register(self)
-
-    def notify(self, value):
-        self.widget.text = value
-
-
 class Observer(object):
     def __init__(self, method):
         self.method = method
@@ -108,7 +99,7 @@ class Unique(Stream):
 
 
 def to_text(number):
-    return "Number: {}".format(number)
+    return "Index: {}".format(number)
 
 
 import datetime as dt
@@ -140,45 +131,50 @@ def minus_button(stream):
     return btn
 
 
+def render(widget, value):
+    widget.text = value
+
+
 def main():
     times = [dt.datetime(2018, 1, 1),
              dt.datetime(2018, 1, 2),
              dt.datetime(2018, 1, 3)]
-    numbers = Stream()
-    totals = numbers.scan(0, partial(bounded_sum, 0, len(times)))
-    totals = totals.unique().log()
-    text = totals.map(to_text)
-    p = bokeh.models.widgets.Paragraph(text="")
-    Paragraph(p, text)
+    hours = [0, 3, 6, 9, 12, 15, 18, 21]
 
-    time_getter = partial(to_time, times)
-    text = totals.map(time_getter).map(format_time)
-    current_p = bokeh.models.widgets.Paragraph(text="")
-    current_date = Paragraph(current_p, text)
+    time_index_p = bokeh.models.widgets.Paragraph(text="")
+    time_p = bokeh.models.widgets.Paragraph(text="")
+    hours_index_p = bokeh.models.widgets.Paragraph(text="")
+    hours_p = bokeh.models.widgets.Paragraph(text="")
+    buttons = []
+
+    # Functional reactive programming style UI
+    stream = Stream()
+    index = stream.scan(0, partial(bounded_sum, 0, len(times))).unique()
+    labels = index.map(to_text)
+    labels.subscribe(partial(render, time_index_p))
+
+    labels = index.map(partial(to_time, times)).map(format_time)
+    labels.subscribe(partial(render, time_p))
+
+    buttons.append([plus_button(stream),
+                    minus_button(stream)])
+    buttons.append([plus_button(stream),
+                    minus_button(stream)])
+
+    stream = Stream()
+    buttons.append([plus_button(stream),
+                    minus_button(stream)])
+    index = stream.scan(0, partial(bounded_sum, 0, len(hours))).unique()
+    hours = index.map(partial(list.__getitem__, hours)).map(str)
+
+    index.map(to_text).subscribe(partial(render, hours_index_p))
+    hours.subscribe(partial(render, hours_p))
 
     document = bokeh.plotting.curdoc()
-    document.add_root(bokeh.layouts.row(current_p, p))
-
-    plus_btn = plus_button(numbers)
-    minus_btn = minus_button(numbers)
-    document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
-
-    plus_btn = plus_button(numbers)
-    minus_btn = minus_button(numbers)
-    document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
-
-    # Display forecast hours
-    hours = [0, 3, 6, 9, 12, 15, 18, 21]
-    numbers = Stream()
-    plus_btn = plus_button(numbers)
-    minus_btn = minus_button(numbers)
-    index = numbers.scan(0, partial(bounded_sum, 0, len(hours)))
-    hours = index.map(partial(list.__getitem__, hours)).map(str)
-    def render(div, value):
-        div.text = value
-    div = bokeh.models.Div()
-    hours.subscribe(partial(render, div))
-    document.add_root(bokeh.layouts.row(div, plus_btn, minus_btn))
+    document.add_root(bokeh.layouts.row(time_index_p, time_p))
+    document.add_root(bokeh.layouts.row(hours_index_p, hours_p))
+    for plus_btn, minus_btn in buttons:
+        document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
 
 
 if __name__ == '__main__' or __name__.startswith("bk"):
