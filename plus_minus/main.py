@@ -52,6 +52,16 @@ class Log(Stream):
         self.emit(value)
 
 
+class Combine(Stream):
+    def __init__(self, *streams):
+        for stream in streams:
+            stream.register(self)
+        super().__init__()
+
+    def notify(self, value):
+        self.emit(value)
+
+
 class Map(Stream):
     def __init__(self, stream, transform):
         stream.register(self)
@@ -131,6 +141,10 @@ def render(widget, value):
     widget.text = value
 
 
+def combine(*streams):
+    return Combine(*streams)
+
+
 def main():
     times = [dt.datetime(2018, 1, 1),
              dt.datetime(2018, 1, 2),
@@ -148,25 +162,22 @@ def main():
     index = stream.scan(0, partial(bounded_sum, 0, len(times))).unique()
     labels = index.map(to_text)
     labels.subscribe(partial(render, time_index_p))
-
-    labels = index.map(partial(list.__getitem__, times)).map(format_time)
-    labels.subscribe(partial(render, time_p))
+    time_stream = index.map(partial(list.__getitem__, times)).map(format_time)
+    time_stream.subscribe(partial(render, time_p))
     stream.emit(0)
-
-    buttons.append([plus_button(stream),
-                    minus_button(stream)])
     buttons.append([plus_button(stream),
                     minus_button(stream)])
 
     stream = Stream()
+    index = stream.scan(0, partial(bounded_sum, 0, len(hours))).unique()
+    index.map(to_text).subscribe(partial(render, hours_index_p))
+    hour_stream = index.map(partial(list.__getitem__, hours)).map(str)
+    hour_stream.subscribe(partial(render, hours_p))
+    stream.emit(0)
     buttons.append([plus_button(stream),
                     minus_button(stream)])
-    index = stream.scan(0, partial(bounded_sum, 0, len(hours))).unique()
-    hours = index.map(partial(list.__getitem__, hours)).map(str)
 
-    index.map(to_text).subscribe(partial(render, hours_index_p))
-    hours.subscribe(partial(render, hours_p))
-    stream.emit(0)
+    combine(time_stream, hour_stream).log()
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh.layouts.row(time_index_p, time_p))
