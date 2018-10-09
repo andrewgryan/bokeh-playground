@@ -12,12 +12,23 @@ class Paragraph(object):
         self.widget.text = value
 
 
+class Observer(object):
+    def __init__(self, method):
+        self.method = method
+
+    def notify(self, value):
+        return self.method(value)
+
+
 class Stream(object):
     def __init__(self):
         self.subscribers = []
 
     def register(self, subscriber):
         self.subscribers.append(subscriber)
+
+    def subscribe(self, method):
+        self.subscribers.append(Observer(method))
 
     def emit(self, value):
         for subscriber in self.subscribers:
@@ -156,9 +167,18 @@ def main():
     minus_btn = minus_button(numbers)
     document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
 
+    # Display forecast hours
+    hours = [0, 3, 6, 9, 12, 15, 18, 21]
+    numbers = Stream()
     plus_btn = plus_button(numbers)
     minus_btn = minus_button(numbers)
-    document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
+    index = numbers.scan(0, partial(bounded_sum, 0, len(hours)))
+    hours = index.map(partial(list.__getitem__, hours)).map(str)
+    def render(div, value):
+        div.text = value
+    div = bokeh.models.Div()
+    hours.subscribe(partial(render, div))
+    document.add_root(bokeh.layouts.row(div, plus_btn, minus_btn))
 
 
 if __name__ == '__main__' or __name__.startswith("bk"):
