@@ -173,6 +173,10 @@ def forecast_label(time, hours):
     return "{:%Y-%m-%d %H:%M} T{:+}".format(time, hours)
 
 
+def real_time(run_time, hours):
+    return run_time + dt.timedelta(hours=hours)
+
+
 def main():
     times = [dt.datetime(2018, 1, 1),
              dt.datetime(2018, 1, 2),
@@ -184,6 +188,7 @@ def main():
     hours_index_p = bokeh.models.widgets.Paragraph(text="")
     hours_p = bokeh.models.widgets.Paragraph(text="")
     label_p = bokeh.models.widgets.Paragraph(text="")
+    real_time_p = bokeh.models.widgets.Paragraph(text="")
     buttons = []
 
     # Functional reactive programming style UI
@@ -208,14 +213,18 @@ def main():
 
     stream = combine_latest(time_stream, hour_stream)
     stream = stream.filter(lambda args: any([a is None for a in args]))
-    stream = stream.map(lambda args: forecast_label(*args))
-    stream.subscribe(partial(render, label_p))
+    forecasts = stream.map(lambda args: forecast_label(*args))
+    forecasts.subscribe(partial(render, label_p))
+
+    real_times = stream.map(lambda args: real_time(*args))
+    real_times.map(str).subscribe(partial(render, real_time_p))
 
     time_clicks.emit(0)
     hour_clicks.emit(0)
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh.layouts.row(label_p))
+    document.add_root(bokeh.layouts.row(real_time_p))
     document.add_root(bokeh.layouts.row(time_index_p, time_p))
     document.add_root(bokeh.layouts.row(hours_index_p, hours_p))
     for plus_btn, minus_btn in buttons:
