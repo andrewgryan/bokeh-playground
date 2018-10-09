@@ -1,5 +1,6 @@
 import bokeh.plotting
 import bokeh.models
+import datetime as dt
 from functools import partial
 
 
@@ -102,11 +103,6 @@ def to_text(number):
     return "Index: {}".format(number)
 
 
-import datetime as dt
-def to_time(times, index):
-    return times[index % len(times)]
-
-
 def format_time(time):
     return "{:%Y%m%d %H:%M}".format(time)
 
@@ -153,8 +149,9 @@ def main():
     labels = index.map(to_text)
     labels.subscribe(partial(render, time_index_p))
 
-    labels = index.map(partial(to_time, times)).map(format_time)
+    labels = index.map(partial(list.__getitem__, times)).map(format_time)
     labels.subscribe(partial(render, time_p))
+    stream.emit(0)
 
     buttons.append([plus_button(stream),
                     minus_button(stream)])
@@ -169,6 +166,7 @@ def main():
 
     index.map(to_text).subscribe(partial(render, hours_index_p))
     hours.subscribe(partial(render, hours_p))
+    stream.emit(0)
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh.layouts.row(time_index_p, time_p))
