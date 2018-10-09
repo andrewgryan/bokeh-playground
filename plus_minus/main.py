@@ -62,6 +62,26 @@ class Combine(Stream):
         self.emit(value)
 
 
+class CombineLatest(Stream):
+    def __init__(self, *streams):
+        self.state = []
+        def indexed_calls(i):
+            def wrapped(x):
+                return (i, x)
+            return wrapped
+        for i, stream in enumerate(streams):
+            stream.map(indexed_calls(i)).register(self)
+            self.state.append(None)
+        super().__init__()
+
+    def notify(self, indexed_value):
+        index, value = indexed_value
+        state = list(self.state)
+        state[index] = value
+        self.state = tuple(state)
+        self.emit(self.state)
+
+
 class Map(Stream):
     def __init__(self, stream, transform):
         stream.register(self)
@@ -145,6 +165,10 @@ def combine(*streams):
     return Combine(*streams)
 
 
+def combine_latest(*streams):
+    return CombineLatest(*streams)
+
+
 def main():
     times = [dt.datetime(2018, 1, 1),
              dt.datetime(2018, 1, 2),
@@ -159,25 +183,27 @@ def main():
 
     # Functional reactive programming style UI
     stream = Stream()
+    time_clicks = stream
     index = stream.scan(0, partial(bounded_sum, 0, len(times))).unique()
     labels = index.map(to_text)
     labels.subscribe(partial(render, time_index_p))
-    time_stream = index.map(partial(list.__getitem__, times)).map(format_time)
-    time_stream.subscribe(partial(render, time_p))
-    stream.emit(0)
+    time_stream = index.map(partial(list.__getitem__, times))
+    time_stream.map(format_time).subscribe(partial(render, time_p))
     buttons.append([plus_button(stream),
                     minus_button(stream)])
 
     stream = Stream()
+    hour_clicks = stream
     index = stream.scan(0, partial(bounded_sum, 0, len(hours))).unique()
     index.map(to_text).subscribe(partial(render, hours_index_p))
-    hour_stream = index.map(partial(list.__getitem__, hours)).map(str)
-    hour_stream.subscribe(partial(render, hours_p))
-    stream.emit(0)
+    hour_stream = index.map(partial(list.__getitem__, hours))
+    hour_stream.map(str).subscribe(partial(render, hours_p))
     buttons.append([plus_button(stream),
                     minus_button(stream)])
 
-    combine(time_stream, hour_stream).log()
+    combine_latest(time_stream, hour_stream).log()
+    time_clicks.emit(0)
+    hour_clicks.emit(0)
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh.layouts.row(time_index_p, time_p))
