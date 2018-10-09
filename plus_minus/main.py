@@ -172,8 +172,8 @@ def combine_latest(*streams):
 def title(run_time, hours):
     valid_time = real_time(run_time, hours)
     return "\n".join([
-        "Run time: {:%Y-%m-%d %H:%M}".format(run_time),
-        "Forecast: {}".format(forecast_label(valid_time, hours))
+        "Valid:    {}".format(forecast_label(valid_time, hours)),
+        "Run time: {:%Y-%m-%d %H:%M}".format(run_time)
     ])
 
 
@@ -231,8 +231,6 @@ def main():
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh.layouts.row(title_p))
-    document.add_root(bokeh.layouts.row(time_index_p, time_p))
-    document.add_root(bokeh.layouts.row(hours_index_p, hours_p))
     for plus_btn, minus_btn in buttons:
         document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
 
