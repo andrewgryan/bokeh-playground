@@ -1,5 +1,6 @@
 import unittest
 import unittest.mock
+import datetime as dt
 import main
 
 
@@ -40,3 +41,13 @@ class TestCombineStreams(unittest.TestCase):
         expect = [(0, None), (0, 0), (0, 1)]
         listener.assert_has_calls([unittest.mock.call(args)
                                    for args in expect])
+
+
+
+class TestForecastLabel(unittest.TestCase):
+    def test_forecast_label(self):
+        time = dt.datetime(2018, 1, 1)
+        hour = 12
+        result = main.forecast_label(time, hour)
+        expect = "2018-01-01 00:00 T+12"
+        self.assertEqual(expect, result)

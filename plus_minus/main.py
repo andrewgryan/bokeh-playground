@@ -169,6 +169,10 @@ def combine_latest(*streams):
     return CombineLatest(*streams)
 
 
+def forecast_label(time, hours):
+    return "{:%Y-%m-%d %H:%M} T{:+}".format(time, hours)
+
+
 def main():
     times = [dt.datetime(2018, 1, 1),
              dt.datetime(2018, 1, 2),
@@ -179,6 +183,7 @@ def main():
     time_p = bokeh.models.widgets.Paragraph(text="")
     hours_index_p = bokeh.models.widgets.Paragraph(text="")
     hours_p = bokeh.models.widgets.Paragraph(text="")
+    label_p = bokeh.models.widgets.Paragraph(text="")
     buttons = []
 
     # Functional reactive programming style UI
@@ -201,11 +206,16 @@ def main():
     buttons.append([plus_button(stream),
                     minus_button(stream)])
 
-    combine_latest(time_stream, hour_stream).log()
+    stream = combine_latest(time_stream, hour_stream)
+    stream = stream.filter(lambda args: any([a is None for a in args]))
+    stream = stream.map(lambda args: forecast_label(*args))
+    stream.subscribe(partial(render, label_p))
+
     time_clicks.emit(0)
     hour_clicks.emit(0)
 
     document = bokeh.plotting.curdoc()
+    document.add_root(bokeh.layouts.row(label_p))
     document.add_root(bokeh.layouts.row(time_index_p, time_p))
     document.add_root(bokeh.layouts.row(hours_index_p, hours_p))
     for plus_btn, minus_btn in buttons:
