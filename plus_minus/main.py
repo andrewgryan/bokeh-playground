@@ -146,13 +146,13 @@ def bounded_sum(minimum, maximum, total, value):
 
 
 def plus_button(stream):
-    btn = bokeh.models.Button(label="+")
+    btn = bokeh.models.Button(label="+", width=30)
     btn.on_click(lambda: stream.emit(+1))
     return btn
 
 
 def minus_button(stream):
-    btn = bokeh.models.Button(label="-")
+    btn = bokeh.models.Button(label="-", width=30)
     btn.on_click(lambda: stream.emit(-1))
     return btn
 
@@ -221,8 +221,10 @@ def main():
     buttons.append([plus_button(stream),
                     minus_button(stream)])
 
+    def any_none(items):
+        return any([item is None for item in items])
     stream = combine_latest(time_stream, hour_stream)
-    stream = stream.filter(lambda args: any([a is None for a in args]))
+    stream = stream.filter(any_none)
     titles = stream.map(lambda args: title(*args))
     titles.subscribe(partial(render, title_p))
 
