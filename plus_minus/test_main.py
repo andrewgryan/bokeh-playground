@@ -51,3 +51,13 @@ class TestForecastLabel(unittest.TestCase):
         result = main.forecast_label(time, hour)
         expect = "2018-01-01 00:00 T+12"
         self.assertEqual(expect, result)
+
+
+class TestForecastStream(unittest.TestCase):
+    def test_times_io_stream(self):
+        listener = unittest.mock.Mock()
+        stream = main.Stream()
+        scanner = stream.scan([], lambda a, i: a + [i])
+        scanner.subscribe(listener)
+        stream.emit([1, 2, 3])
+        listener.assert_called_once_with([[1, 2, 3]])
