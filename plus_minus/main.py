@@ -233,8 +233,10 @@ def main():
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh.layouts.row(title_p))
+    rows = []
     for plus_btn, minus_btn in buttons:
-        document.add_root(bokeh.layouts.row(plus_btn, minus_btn))
+        rows.append(bokeh.layouts.row(plus_btn, minus_btn))
+    document.add_root(bokeh.layouts.column(*rows))
 
 
 if __name__ == '__main__' or __name__.startswith("bk"):
