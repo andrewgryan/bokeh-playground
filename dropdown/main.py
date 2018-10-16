@@ -6,7 +6,12 @@ import bokeh.layouts
 stream = forest.Stream()
 def menu_item(word):
     return word, word.lower()
-menu_stream = stream.map(menu_item).scan([], lambda a, i: a + [i])
+
+def limited(state, update):
+    next_state = state + [update]
+    return next_state[-5:]
+
+menu_stream = stream.map(menu_item).scan([], limited)
 
 dropdown = bokeh.models.Dropdown()
 dropdown.on_click(lambda value: print(value))
