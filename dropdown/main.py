@@ -8,10 +8,13 @@ def menu_item(word):
     return word, word.lower()
 
 def limited(state, update):
-    next_state = state + [update]
-    return next_state[-5:]
+    next_state = state[2:] + [update]
+    return state[:2] + next_state[-5:]
 
-menu_stream = stream.map(menu_item).scan([], limited)
+def format_menu(items):
+    return items[:2] + [None] + items[2:]
+
+menu_stream = stream.map(menu_item).scan([], limited).map(format_menu)
 
 dropdown = bokeh.models.Dropdown()
 dropdown.on_click(lambda value: print(value))
