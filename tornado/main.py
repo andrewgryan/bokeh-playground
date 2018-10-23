@@ -4,6 +4,7 @@ import tornado.ioloop
 import tornado.web
 import jinja2
 import bokeh.embed
+import bokeh.client
 from bokeh.server.server import Server
 import bar.main
 
@@ -19,7 +20,10 @@ class Index(tornado.web.RequestHandler):
 
 class Goodbye(tornado.web.RequestHandler):
     def get(self):
-        script = bokeh.embed.server_document("http://localhost:5006/bkapp")
+        url = "http://localhost:5006/bkapp"
+
+        script = bokeh.embed.server_document(url)
+
         if os.path.exists("bar/templates/index.html"):
             path = "bar/templates/index.html"
         else:
