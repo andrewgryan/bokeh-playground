@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="static_extra/reset.css">
+<link rel="stylesheet" type="text/css" href="{{ app }}/static/style.css">
+<style>
+    html, body {
+        height: 100%;
+        overflow: hidden;
+    }
+    .map-window {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+    }
+    .controls {
+        color: white;
+        background-color: #222;
+        position: absolute;
+        width: 2%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        z-index: 2;
+        transition: width 0.5s;
+        -webkit-transition: width 0.5s;
+    }
+    .controls:hover {
+        width: 20%;
+    }
+    .controls-max {
+        transition: opacity 1s ease-out;
+        opacity: 0;
+        height: 0;
+        overflow: hidden;
+    }
+    .controls:hover .controls-max {
+        transition: opacity 1s ease-in;
+        opacity: 1;
+        height: auto;
+    }
+    .controls-min {
+        transition: opacity 1s ease-in;
+        opacity: 1;
+        height: auto;
+    }
+    .controls:hover .controls-min {
+        transition: opacity 1s ease-out;
+        opacity: 0;
+        height: 0;
+        overflow: hidden;
+    }
+    .pd-rt-p5 {
+        padding-right: 0.5rem;
+    }
+    .pd-lf-p5 {
+        padding-left: 0.5rem;
+    }
+
+</style>
+<head>
+<body>
+<div class="banner">
+<div class="container">
+    <h1>Title</h1>
+</div>
+</div>
+<div class="controls pd-lf-p5 pd-rt-p5">
+    <div class="controls-min">
+        <h1>&#9776;</h1>
+    </div>
+    <div class="controls-max">
+        <h1>Controls</h1>
+        <p>Buttons and what not</p>
+    </div>
+</div>
+<div class="container mg-tp-5">
+    <h1>Loaded from App template</h1>
+    <p>{{ message }}</p>
+    <div class="map-window">
+    {{ script|safe }}
+    </div>
+    <a href="hello">Hello!</a>
+    <a href="goodbye">Goodbye!</a>
+</div>
+</body>
+</html>
