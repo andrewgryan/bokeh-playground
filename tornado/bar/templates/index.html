@@ -67,11 +67,6 @@
 {{ bokeh_css | indent(8) if bokeh_css }}
 <head>
 <body>
-<div class="banner">
-<div class="container">
-    <h1>Title</h1>
-</div>
-</div>
 <div class="controls pd-lf-p5 pd-rt-p5">
     <div class="controls-min">
         <h1>&#9776;</h1>
@@ -88,7 +83,6 @@
     </div>
 </div>
 <div class="container mg-tp-5">
-    <h1>Loaded from App template</h1>
     <div class="map-window">
     {% for doc in docs %}
         {% for root in doc.roots %}

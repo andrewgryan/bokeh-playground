@@ -3,15 +3,6 @@ body {
     font-weight: 100;
 }
 
-.banner {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    background-color: #222;
-    color: white;
-}
-
 h1 {
     font-weight: 100;
 }
