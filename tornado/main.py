@@ -54,8 +54,7 @@ def tornado_server():
 def bokeh_server():
     extra_patterns = [
         ('/', Index),
-        (r"/static_extra/(.*)", tornado.web.StaticFileHandler,
-         {"path": "./static_extra"}),
+        (r"/_static/(.*)", tornado.web.StaticFileHandler, {"path": "./_static"}),
         (r"/goodbye", Goodbye),
         (static_regex("bar"), tornado.web.StaticFileHandler,
          {"path": static_path("bar")})

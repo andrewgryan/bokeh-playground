@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html>
+{% from macros import embed %}
 <head>
-<link rel="stylesheet" type="text/css" href="static_extra/reset.css">
-<link rel="stylesheet" type="text/css" href="{{ app }}/static/style.css">
+<link rel="stylesheet" type="text/css" href="_static/reset.css">
+<link rel="stylesheet" type="text/css" href="bar/static/style.css">
 <style>
     html, body {
         height: 100%;
@@ -63,6 +64,7 @@
 
 <!-- Bokeh specific JS/CSS -->
 {{ bokeh_js | indent(8) if bokeh_js }}
+{{ bokeh_css | indent(8) if bokeh_css }}
 <head>
 <body>
 <div class="banner">
@@ -76,22 +78,26 @@
     </div>
     <div class="controls-max">
         <h1>Controls</h1>
-        <p>Buttons and what not</p>
+        {% for doc in docs %}
+            {% for root in doc.roots %}
+                {% if root.name == "btn" %}
+                    {{ embed(root) | indent(10) }}
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
     </div>
 </div>
 <div class="container mg-tp-5">
     <h1>Loaded from App template</h1>
-    {% from macros import embed %}
+    <div class="map-window">
     {% for doc in docs %}
-        {{ embed(doc) if doc.elementid }}
         {% for root in doc.roots %}
             {% if root.name == "map" %}
-            <div class="map-window">
                 {{ embed(root) | indent(10) }}
-            </div>
             {% endif %}
         {% endfor %}
     {% endfor %}
+    </div>
     {{ plot_script | indent(8) }}
 </div>
 </body>
