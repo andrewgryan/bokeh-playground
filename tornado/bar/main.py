@@ -10,7 +10,8 @@ env = jinja2.Environment(loader=jinja2.FileSystemLoader(script_dir))
 
 
 def app(document):
-    figure = bokeh.plotting.figure(sizing_mode="stretch_both", name="map")
+    figure = bokeh.plotting.figure(sizing_mode="stretch_both", name="map",
+                                   title="Circles")
     source = bokeh.models.ColumnDataSource(dict(
         x=[1, 2, 3],
         y=[1, 2, 3],
