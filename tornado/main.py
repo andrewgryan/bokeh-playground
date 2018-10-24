@@ -1,25 +1,30 @@
 #!/usr/bin/env python
 import os
-import tornado.ioloop
 import tornado.web
+import jinja2
+from bokeh.server.server import Server
+import bar.main
+
+
+env = jinja2.Environment(loader=jinja2.FileSystemLoader("."))
 
 
 class Index(tornado.web.RequestHandler):
     def get(self):
-        self.render("index.html")
+        template = env.get_template("index.html")
+        self.write(template.render(message="Hello, world!"))
 
 
-def main():
-    static_path = os.path.join(os.path.dirname(__file__), 'static')
-    return tornado.web.Application([
-        (r"/", Index)
-    ],
-    static_path=static_path)
+def bokeh_server():
+    extra_patterns = [
+        ('/', Index),
+        (r"/_static/(.*)", tornado.web.StaticFileHandler, {"path": "./_static"}),
+        (r"/bar/static/(.*)", tornado.web.StaticFileHandler, {"path": "./bar/static"})
+    ]
+    return Server({"/bkapp": bar.main.app}, extra_patterns=extra_patterns)
 
 
 if __name__ == '__main__':
-    port = 5006
-    app = main()
-    app.listen(port)
-    print("serving localhost:{}".format(port))
-    tornado.ioloop.IOLoop.current().start()
+    print("starting bokeh server")
+    server = bokeh_server()
+    server.io_loop.start()
