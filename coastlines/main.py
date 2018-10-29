@@ -20,6 +20,15 @@ def main():
     xs, ys = coastlines()
     figure = bokeh.plotting.figure(sizing_mode="stretch_both")
     figure.multi_line(xs, ys)
+
+    def on_change(attr, old, new):
+        print(attr, old, new)
+
+    figure.x_range.on_change("start", on_change)
+    figure.x_range.on_change("end", on_change)
+    figure.y_range.on_change("start", on_change)
+    figure.y_range.on_change("end", on_change)
+
     document = bokeh.plotting.curdoc()
     document.add_root(figure)
 
