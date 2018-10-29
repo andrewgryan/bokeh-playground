@@ -1,6 +1,7 @@
 import bokeh.plotting
 import cartopy
 import numpy as np
+from functools import partial
 
 
 def coastlines(scale="110m"):
@@ -16,18 +17,40 @@ def coastlines(scale="110m"):
     return xs, ys
 
 
+def any_none(items):
+    return any(item is None for item in items)
+
+
+def combine_latest():
+    state = [None, None, None, None]
+    def callback(axis, attr, value):
+        index = {
+            ("x", "start"): 0,
+            ("x", "end"): 1,
+            ("y", "start"): 2,
+            ("y", "end"): 3,
+        }
+        i = index[(axis, attr)]
+        state[i] = value
+        if any_none(state):
+            return
+        print(state)
+    return callback
+
+
 def main():
     xs, ys = coastlines()
     figure = bokeh.plotting.figure(sizing_mode="stretch_both")
     figure.multi_line(xs, ys)
 
-    def on_change(attr, old, new):
-        print(attr, old, new)
+    combinator = combine_latest()
+    def on_change(axis, attr, old, new):
+        combinator(axis, attr, new)
 
-    figure.x_range.on_change("start", on_change)
-    figure.x_range.on_change("end", on_change)
-    figure.y_range.on_change("start", on_change)
-    figure.y_range.on_change("end", on_change)
+    figure.x_range.on_change("start", partial(on_change, "x"))
+    figure.x_range.on_change("end", partial(on_change, "x"))
+    figure.y_range.on_change("start", partial(on_change, "y"))
+    figure.y_range.on_change("end", partial(on_change, "y"))
 
     document = bokeh.plotting.curdoc()
     document.add_root(figure)
