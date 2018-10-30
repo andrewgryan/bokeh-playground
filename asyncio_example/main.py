@@ -30,19 +30,17 @@ def on_click_reset():
     p.text = "{} click(s)".format(bucket.summary())
     bucket.reset()
 
-
 buttons = [
     bokeh.models.Button(),
-    bokeh.models.Button()
 ]
 on_clicks = [
     on_click_event,
-    on_click_reset,
 ]
 for button, on_click in zip(buttons, on_clicks):
     button.on_click(on_click)
 
 document = bokeh.plotting.curdoc()
+document.add_periodic_callback(on_click_reset, 1000)
 document.add_root(bokeh.layouts.column(
     p,
     *buttons))
