@@ -2,6 +2,21 @@ import numpy as np
 import bokeh.plotting
 import bokeh.models
 import bokeh.tile_providers
+import numpy as np
+import cartopy
+
+
+def web_mercator(lons, lats):
+    lons, lats = np.asarray(lons), np.asarray(lats)
+    google_mercator = cartopy.crs.Mercator.GOOGLE
+    plate_carree = cartopy.crs.PlateCarree()
+    values = google_mercator.transform_points(
+            plate_carree,
+            lons,
+            lats)
+    x, y, _ = values.T
+    return x, y
+
 
 from_model = True
 if from_model:
@@ -21,6 +36,12 @@ figure = bokeh.plotting.figure(
         match_aspect=True,
         )
 figure.add_tile(tile)
+
+# Plot big square line
+lons = [-80, 80, 80, -80, -80]
+lats = [-70, -70, 70, 70, -70]
+x, y = web_mercator(lons, lats)
+figure.line(x=x, y=y)
 
 # Add a random ImageRGBA plot to illustrate concept
 N = 100
