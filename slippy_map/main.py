@@ -7,18 +7,6 @@ def perimeter(x, y, dw, dh):
             [y, y, y + dh, y + dh, y])
 
 
-def pixels(N):
-    img = np.empty((N, N), dtype=np.uint32)
-    view = img.view(dtype=np.uint8).reshape(N, N, 4)
-    for i in range(N):
-        for j in range(N):
-            view[i, j, 0] = int((i / N) * 255)
-            view[i, j, 1] = 158
-            view[i, j, 2] = int((j / N) * 255)
-            view[i, j, 3] = 255
-    return img
-
-
 def area(figure):
     dw = figure.x_range.end - figure.x_range.start
     dh = figure.y_range.end - figure.y_range.start
@@ -39,22 +27,29 @@ source = bokeh.models.ColumnDataSource({
 })
 def draw_squares(figure):
     if valid_range(figure):
-        if area(figure) < 1:
-            xs, ys = [], []
-            for x, y in [(0, 0), (0.5, 0.), (0.5, 0.5), (0, 0.5)]:
-                xp, yp = perimeter(x, y, 0.5, 0.5)
-                xs.append(xp)
-                ys.append(yp)
-        else:
-            xs, ys = [], []
-            for x, y in [(0, 0)]:
-                xp, yp = perimeter(x, y, 1, 1)
-                xs.append(xp)
-                ys.append(yp)
+        xs, ys = [], []
+        for x, y, dw, dh in tiles(figure):
+            xp, yp = perimeter(x, y, dw, dh)
+            xs.append(xp)
+            ys.append(yp)
         source.data = {
             "xs": xs,
             "ys": ys
         }
+
+
+def tiles(figure):
+    if area(figure) < 1:
+        xys = [(0, 0), (0.5, 0.), (0.5, 0.5), (0, 0.5)]
+        dw, dh = 0.5, 0.5
+    else:
+        xys = [(0, 0)]
+        dw, dh = 1, 1
+    tiles = []
+    for x, y in xys:
+        tiles.append((x, y, dw, dh))
+    return tiles
+
 
 def add_zoom(figure):
     counter = 0
