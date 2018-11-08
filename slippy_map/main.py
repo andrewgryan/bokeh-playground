@@ -7,9 +7,9 @@ def perimeter(x, y, dw, dh):
             [y, y, y + dh, y + dh, y])
 
 
-def area(figure):
-    dw = figure.x_range.end - figure.x_range.start
-    dh = figure.y_range.end - figure.y_range.start
+def area(x_start, x_end, y_start, y_end):
+    dw = x_end - x_start
+    dh = y_end - y_start
     return dw * dh
 
 
@@ -21,25 +21,56 @@ def valid_range(figure):
         figure.y_range.end
     ])
 
+
+def color(dw):
+    if dw == 1:
+        return "blue"
+    elif dw == 0.5:
+        return "red"
+    elif dw == 0.25:
+        return "purple"
+
+
 source = bokeh.models.ColumnDataSource({
     "xs": [],
-    "ys": []
+    "ys": [],
+    "color": []
 })
 def draw_squares(figure):
     if valid_range(figure):
+        colors = []
         xs, ys = [], []
-        for x, y, dw, dh in tiles(figure):
+        for x, y, dw, dh in tiles(
+                figure.x_range.start,
+                figure.x_range.end,
+                figure.y_range.start,
+                figure.y_range.end):
             xp, yp = perimeter(x, y, dw, dh)
             xs.append(xp)
             ys.append(yp)
+            colors.append(color(dw))
         source.data = {
             "xs": xs,
-            "ys": ys
+            "ys": ys,
+            "color": colors
         }
 
 
-def tiles(figure):
-    if area(figure) < 1:
+def tiles(x_start, x_end, y_start, y_end):
+    if area(x_start, x_end, y_start, y_end) < 4 * (0.25)**2:
+        dw, dh = 0.25, 0.25
+        if x_start < 0:
+            x0 = 0
+        else:
+            x0 = np.floor(x_start / dw) * dw
+        if y_start < 0:
+            y0 = 0
+        else:
+            y0 = np.floor(y_start / dh) * dh
+        x = dw * np.array([0, 1, 1, 0], dtype="f") + x0
+        y = dh * np.array([0, 0, 1, 1], dtype="f") + y0
+        xys = zip(x, y)
+    elif area(x_start, x_end, y_start, y_end) < 4 * (0.5)**2:
         xys = [(0, 0), (0.5, 0.), (0.5, 0.5), (0, 0.5)]
         dw, dh = 0.5, 0.5
     else:
@@ -69,7 +100,7 @@ figure = bokeh.plotting.figure(
         y_range=(0, 1),
         active_scroll="wheel_zoom",
         sizing_mode="stretch_both")
-figure.multi_line(xs="xs", ys="ys", source=source)
+figure.multi_line(xs="xs", ys="ys", color="color", source=source)
 add_zoom(figure)
 document = bokeh.plotting.curdoc()
 document.add_root(figure)
