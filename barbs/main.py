@@ -19,14 +19,24 @@ figure = bokeh.plotting.figure(
 # xs, ys = forest.bokeh_barbs(mpl_barbs)
 # figure.patches(xs=xs, ys=ys)
 
-for i, (x, y) in enumerate([(0, 0), (1, 0)]):
-    if i == 0:
-        xb = [0, -7, -7.875, -7, 0]
-        yb = [0, 0, 2.8, 0, 0]
-    else:
-        xb = [0, 0, -1.4, 0, 0, 0]
-        yb = [0, -5.6875, -6.125, -5.6875, -7, 0]
-    glyph = custom.Barbs(x=x, y=y, xb=xb, yb=yb)
+x = [0, 0]
+y = [0, 1]
+xbs = [[0, -7, -7.875, -7, 0],
+       [0, 0, -1.4, 0, 0, 0]]
+ybs = [[0, 0, 2.8, 0, 0],
+       [0, -5.6875, -6.125, -5.6875, -7, 0]]
+
+method = "double"
+if method == "single":
+    for i in range(len(x)):
+        glyph = custom.Barbs(
+                x=x[i],
+                y=y[i],
+                xb=xbs[i],
+                yb=ybs[i])
+        figure.add_glyph(glyph)
+else:
+    glyph = custom.DoubleBarbs(x=x, y=y, xs=xbs, ys=ybs)
     figure.add_glyph(glyph)
 
 document = bokeh.plotting.curdoc()

@@ -1,14 +1,9 @@
+import {Patches, PatchesView} from "models/glyphs/patches"
 import {RenderOne, Marker, MarkerView, MarkerData} from "models/markers/marker"
 import {Class} from "core/class"
 import {Line, Fill} from "core/visuals"
 import {Context2d} from "core/util/canvas"
 import * as p from "core/properties"
-
-
-export interface BarbsData extends GlyphData {
-    bxs: Arrayable<Arrayable<number>>,
-    bys: Arrayable<Arrayable<number>>
-}
 
 
 // Re-implement functions not exported by models/markers/index.ts
@@ -70,3 +65,19 @@ function _mk_model(type: string, f: RenderOne): Class<Marker> {
 }
 
 export const Barbs = _mk_model('Barbs', barb)
+
+// Using standard way to extend bokeh
+export class DoubleBarbsView extends PatchesView {
+    model: DoubleBarbs
+}
+export class DoubleBarbs extends Patches {
+    static initClass(): void {
+        this.prototype.type = "DoubleBarbs"
+        this.prototype.default_view = DoubleBarbsView
+        this.define({
+            x: [p.Array],
+            y: [p.Array]
+        })
+    }
+}
+DoubleBarbs.initClass()

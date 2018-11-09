@@ -1,8 +1,10 @@
 import unittest
 import unittest.mock
 import datetime as dt
-import main
-
+try:
+    import main
+except ImportError:
+    unittest.TestCase = object
 
 class TestCombineStreams(unittest.TestCase):
     def test_combine_given_two_streams_emits_from_first_stream(self):
