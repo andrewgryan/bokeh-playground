@@ -4,6 +4,13 @@ import {Line, Fill} from "core/visuals"
 import {Context2d} from "core/util/canvas"
 import * as p from "core/properties"
 
+
+export interface BarbsData extends GlyphData {
+    bxs: Arrayable<Arrayable<number>>,
+    bys: Arrayable<Arrayable<number>>
+}
+
+
 // Re-implement functions not exported by models/markers/index.ts
 function barb(
         ctx: Context2d,
@@ -16,8 +23,8 @@ function barb(
 
     // Draw wind barb
     ctx.moveTo(xs[0], ys[0])
-    for (let i=1; i<xs.length; i++) {
-        ctx.lineTo(r * xs[i], -r * ys[i]);
+    for (let j=1; j<xs.length; j++) {
+        ctx.lineTo(r * xs[j], -r * ys[j]);
     }
     ctx.closePath()
 
