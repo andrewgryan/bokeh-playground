@@ -44,7 +44,7 @@ function _mk_model(type: string, f: RenderOne): Class<Marker> {
             r: number,
             line: Line,
             fill: Fill): void {
-                this._f(ctx, i, r, this.model.barb_x, this.model.barb_y, line, fill)
+                this._f(ctx, i, r, this.model.xb, this.model.yb, line, fill)
         }
     }
     view.initClass()
@@ -53,8 +53,8 @@ function _mk_model(type: string, f: RenderOne): Class<Marker> {
             this.prototype.default_view = view
             this.prototype.type = type
             this.define({
-                barb_x: [p.Array],
-                barb_y: [p.Array]
+                xb: [p.Array],
+                yb: [p.Array]
             })
         }
     }
