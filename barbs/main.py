@@ -16,7 +16,7 @@ V = C * np.sin(np.deg2rad(angle))
 mpl_barbs = matplotlib.quiver.Barbs(ax, U, V)
 
 xs, ys = forest.bokeh_barbs(mpl_barbs)
-figure.multi_line(xs=xs, ys=ys)
+figure.patches(xs=xs, ys=ys)
 
 document = bokeh.plotting.curdoc()
 document.add_root(figure)
