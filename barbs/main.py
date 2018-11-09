@@ -19,9 +19,9 @@ figure = bokeh.plotting.figure(
 # xs, ys = forest.bokeh_barbs(mpl_barbs)
 # figure.patches(xs=xs, ys=ys)
 
-glyph = custom.Barbs(x=0, y=0)
-# glyph = bokeh.models.Triangle(x=0, y=0)
-figure.add_glyph(glyph)
+for x, y in [(0, 0), (1, 0)]:
+    glyph = custom.Barbs(x=x, y=y, size=10)
+    figure.add_glyph(glyph)
 
 document = bokeh.plotting.curdoc()
 document.add_root(figure)

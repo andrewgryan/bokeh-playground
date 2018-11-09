@@ -2,28 +2,25 @@ import {RenderOne, Marker, MarkerView} from "models/markers/marker"
 import {Class} from "core/class"
 import {Line, Fill} from "core/visuals"
 import {Context2d} from "core/util/canvas"
-console.log("Hello, TypeScript!")
 
 // Re-implement functions not exported by models/markers/index.ts
-
-const SQ3 = Math.sqrt(3)
-function _one_tri(ctx: Context2d, r: number): void {
-    const h = r*SQ3
-    const a = h/3
-
-    ctx.moveTo(-r, a)
-    ctx.lineTo(r, a)
-    ctx.lineTo(0, a-h)
+function _one_barb(ctx: Context2d, r: number): void {
+    let xs = [0, 0, -1.4, 0, 0]
+    let ys = [0, -5.6875, -6.125, -5.6875, -7]
+    ctx.moveTo(xs[0], ys[0])
+    for (let i=1; i<xs.length; i++) {
+        ctx.lineTo(r * xs[i], -r * ys[i]);
+    }
     ctx.closePath()
 }
 
-function triangle(
+function barb(
         ctx: Context2d,
         i: number,
         r: number,
         line: Line,
         fill: Fill): void {
-    _one_tri(ctx, r)
+    _one_barb(ctx, r)
 
     if (fill.doit) {
         fill.set_vectorize(ctx, i)
@@ -54,4 +51,4 @@ function _mk_model(type: string, f: RenderOne): Class<Marker> {
     return model
 }
 
-export const Barbs = _mk_model('Barbs', triangle)
+export const Barbs = _mk_model('Barbs', barb)
