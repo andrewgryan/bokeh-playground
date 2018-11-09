@@ -1,11 +1,15 @@
 from bokeh.models import Marker, Patches
-from bokeh.core.properties import Seq, Float
+from bokeh.core.properties import (
+        Seq,
+        Float,
+        NumberSpec,
+        DistanceSpec)
 
 
 class DoubleBarbs(Patches):
     __implementation__ = "custom.ts"
-    x = Seq(Float())
-    y = Seq(Float())
+    x = NumberSpec()
+    y = NumberSpec()
 
 
 class Barbs(Marker):
