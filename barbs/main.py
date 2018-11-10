@@ -10,15 +10,9 @@ figure = bokeh.plotting.figure(
 
 ax = plt.gca()
 angle = 30
-X = np.array([1, 2, 3, 4, 5, 6, 7])
-Y = np.array([1, 4, 3, 2, 5, 6, 1])
-C = np.array([10, 20, 30, 40, 50, 60, 70])
-U = C * np.cos(np.deg2rad(angle))
-V = C * np.sin(np.deg2rad(angle))
 
-
-X = np.arange(-10, 10, 1)
-Y = np.arange(-10, 10, 1)
+X = np.arange(-10, 10, 1, dtype="d")
+Y = np.arange(-10, 10, 1, dtype="d")
 U, V = np.meshgrid(X**2, Y**2)
 
 mpl_barbs = matplotlib.quiver.Barbs(ax, X, Y, U, V)
@@ -63,9 +57,27 @@ def on_click():
         "b": b,
     }
 
+def rotate():
+    global X, Y, U, V, source
+    angle = np.rad2deg(np.arctan2(V, U))
+    angle += 10
+    C = np.sqrt(U**2 + V**2)
+    U = C * np.cos(np.deg2rad(angle))
+    V = C * np.sin(np.deg2rad(angle))
+    ax = plt.gca()
+    mpl_barbs = matplotlib.quiver.Barbs(ax, X, Y, U, V)
+    x, y, a, b = bokeh_barbs(mpl_barbs)
+    source.data = {
+        "x": x,
+        "y": y,
+        "a": a,
+        "b": b,
+    }
+
 button = bokeh.models.Button(label="Change barbs")
 button.on_click(on_click)
 
 document = bokeh.plotting.curdoc()
 document.add_root(button)
 document.add_root(figure)
+document.add_periodic_callback(rotate, 500)
