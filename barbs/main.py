@@ -2,67 +2,51 @@ import matplotlib.pyplot as plt
 import matplotlib.quiver
 import numpy as np
 import bokeh.plotting
-# import forest
 import custom
 
 figure = bokeh.plotting.figure(
         match_aspect=True,
         sizing_mode="stretch_both")
 
-# ax = plt.gca()
-# angle = 30
-# C = 65
-# U = C * np.cos(np.deg2rad(angle))
-# V = C * np.sin(np.deg2rad(angle))
-# mpl_barbs = matplotlib.quiver.Barbs(ax, U, V)
-#
-# xs, ys = forest.bokeh_barbs(mpl_barbs)
-# figure.patches(xs=xs, ys=ys)
+ax = plt.gca()
+angle = 30
+X = np.array([1, 2, 3, 4, 5, 6, 7])
+Y = np.array([1, 4, 3, 2, 5, 6, 1])
+C = np.array([10, 20, 30, 40, 50, 60, 70])
+U = C * np.cos(np.deg2rad(angle))
+V = C * np.sin(np.deg2rad(angle))
 
-x = [0, 0]
-y = [0, 1]
-xbs = [[0, -7, -7.875, -7, 0],
-       [0, 0, -1.4, 0, 0, 0]]
-ybs = [[0, 0, 2.8, 0, 0],
-       [0, -5.6875, -6.125, -5.6875, -7, 0]]
 
-method = "single-double"
-if method == "single":
-    # Loop over each glyph
-    for i in range(len(x)):
-        glyph = custom.Barbs(
-                x=x[i],
-                y=y[i],
-                xb=xbs[i],
-                yb=ybs[i])
-        figure.add_glyph(glyph)
-elif method == "single-double":
-    # Define identical glyphs
-    glyph = custom.Barbs(
-            x="x",
-            y="y",
-            xb="xb",
-            yb="yb")
-    source = bokeh.models.ColumnDataSource(dict(
-            x=x,
-            y=y,
-            xb=xb[0],
-            yb=yb[0],
-        ))
-    figure.add_glyph(source, glyph)
-else:
-    glyph = custom.DoubleBarbs(
-            x="x",
-            y="y",
-            xs="xs",
-            ys="ys")
-    source = bokeh.models.ColumnDataSource(dict(
-            x=x,
-            y=y,
-            xs=xbs,
-            ys=ybs,
-        ))
-    figure.add_glyph(source, glyph)
+X = np.arange(-10, 10, 1)
+Y = np.arange(-10, 10, 1)
+U, V = np.meshgrid(X, Y)
 
+mpl_barbs = matplotlib.quiver.Barbs(ax, X, Y, U, V)
+
+def bokeh_barbs(mpl_barb):
+    """Convert matplotlib.quiver.Barbs to bokeh multiline/patches data"""
+    xo, yo = mpl_barb.get_offsets().T
+    paths = mpl_barb.get_paths()
+    xs, ys = [], []
+    for path in paths:
+        x, y = path.vertices.T
+        xs.append(x)
+        ys.append(y)
+    return xo, yo, xs, ys
+
+x, y, a, b = bokeh_barbs(mpl_barbs)
+glyph = custom.Barbs(
+        x="x",
+        y="y",
+        a="a",
+        b="b",
+        size=10)
+source = bokeh.models.ColumnDataSource(dict(
+        x=x,
+        y=y,
+        a=a,
+        b=b,
+    ))
+figure.add_glyph(source, glyph)
 document = bokeh.plotting.curdoc()
 document.add_root(figure)

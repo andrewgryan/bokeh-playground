@@ -14,5 +14,5 @@ class DoubleBarbs(Patches):
 
 class Barbs(Marker):
     __implementation__ = "custom.ts"
-    xb = Seq(Float())
-    yb = Seq(Float())
+    a = DistanceSpec(units_default="screen")
+    b = DistanceSpec(units_default="screen")
