@@ -16,9 +16,12 @@ function barb(
         fill: Fill): void {
 
     // Draw wind barb
-    ctx.moveTo(a[0], b[0])
     for (let j=1; j<a.length; j++) {
-        ctx.lineTo(r * a[j], -r * b[j]);
+        if (j === 0) {
+            ctx.moveTo(a[j], b[j])
+        } else {
+            ctx.lineTo(r * a[j], -r * b[j]);
+        }
     }
     ctx.closePath()
 
