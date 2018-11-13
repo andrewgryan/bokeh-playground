@@ -34,7 +34,7 @@ figure = bokeh.plotting.figure(
         match_aspect=True,
         sizing_mode="stretch_both")
 
-mode = "circles"
+mode = "barbs"
 if mode == "barbs":
     ax = plt.gca()
     angle = 30
@@ -115,8 +115,11 @@ def rotate_barbs():
 def random_circles():
     global source
     n = 10000
-    x = np.random.random(n) * 10
-    y = np.random.random(n) * 10
+    x = np.linspace(0, 50, 100)
+    y = np.linspace(0, 50, 100)
+    x, y = np.meshgrid(x, y)
+    x = x.flatten()
+    y = y.flatten()
     r = np.random.random(n) / 5
     source.data = {
         "x": x,
@@ -130,9 +133,9 @@ button.on_click(on_click)
 document = bokeh.plotting.curdoc()
 document.add_root(button)
 document.add_root(figure)
-duration = 50
-if mode == "circles":
-    callback = random_circles
-else:
+duration = 1000
+if mode == "barbs":
     callback = rotate_barbs
+else:
+    callback = random_circles
 document.add_periodic_callback(callback, duration)
