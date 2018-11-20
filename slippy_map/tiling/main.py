@@ -69,6 +69,9 @@ def main():
     figure.y_range.on_change("start", callback)
     figure.y_range.on_change("end", callback)
 
+    min_level = 2
+    max_level = 6
+    level = 4
     lc = {
         2: "green",
         3: "red",
@@ -76,15 +79,32 @@ def main():
         5: "SteelBlue",
         6: "Teal"
     }
-    level = 6
-    xs, ys = [], []
-    for i in range(2**level):
-        for j in range(2**level):
-            xc, yc, length = tile(i, j, level)
-            x, y = square(xc, yc, length)
-            xs.append(x)
-            ys.append(y)
-    figure.multi_line(xs=xs, ys=ys, line_color=lc[level])
+    grid_source = bokeh.models.ColumnDataSource({
+        "xs": [],
+        "ys": [],
+        "line_color": []
+    })
+    figure.multi_line(
+        xs="xs",
+        ys="ys",
+        line_color="line_color",
+        source=grid_source)
+
+    def draw_grid(level):
+        xs, ys = [], []
+        for i in range(2**level):
+            for j in range(2**level):
+                xc, yc, length = tile(i, j, level)
+                x, y = square(xc, yc, length)
+                xs.append(x)
+                ys.append(y)
+        grid_source.data = {
+            "xs": xs,
+            "ys": ys,
+            "line_color": len(xs) * [lc[level]]
+        }
+
+    draw_grid(level)
 
     # Fake x/y perimeter
     xc, yc, dx, dy = 1.5, 0.9, 3, 1.5
@@ -105,7 +125,7 @@ def main():
         circumference = 5
     dp = resolution(global_resolution(circumference, tile_size), level)
 
-    def shade(xc, yc, dx, dy, dp):
+    def shade(xc, yc, dx, dy, dp, level):
         si, sj = tile_index(*pixel_index(xc, yc, dp))
         ei, ej = tile_index(*pixel_index(xc + dx, yc + dy, dp))
         xs, ys = [], []
@@ -118,21 +138,22 @@ def main():
             "xs": xs,
             "ys": ys
         }
-    shade_source = bokeh.models.ColumnDataSource(shade(xc, yc, dx, dy, dp))
+    shade_source = bokeh.models.ColumnDataSource(shade(xc, yc, dx, dy, dp, level))
     figure.patches(xs="xs", ys="ys", source=shade_source,
                    line_alpha=0,
                    fill_alpha=0.5,
                    fill_color=lc[level])
 
-    def on_click():
+    def random_rectangle():
         max_width = 5
         max_height = 5
         dx = max_width * np.random.random()
         dy = max_height * np.random.random()
         xc = (max_width - dx) * np.random.random()
         yc = (max_height - dy) * np.random.random()
+        dp = resolution(global_resolution(circumference, tile_size), level)
 
-        shade_source.data = shade(xc, yc, dx, dy, dp)
+        shade_source.data = shade(xc, yc, dx, dy, dp, level)
 
         x, y = rectangle(xc, yc, dx, dy)
         rectangle_source.data = {
@@ -140,11 +161,31 @@ def main():
             "ys": [y]
         }
 
-    btn = bokeh.models.Button()
-    btn.on_click(on_click)
+    def increment_level():
+        nonlocal level
+        if level < max_level:
+            level += 1
+            draw_grid(level)
 
+    def decrement_level():
+        nonlocal level
+        if level > min_level:
+            level -= 1
+            draw_grid(level)
+
+    btns = []
+    for label, on_click in [
+            ("Random rectangle", random_rectangle),
+            ("+", increment_level),
+            ("-", decrement_level)
+        ]:
+        btn = bokeh.models.Button(label=label)
+        btn.on_click(on_click)
+        btns.append(btn)
     document = bokeh.plotting.curdoc()
-    document.add_root(bokeh.layouts.column(btn, figure))
+    document.add_root(bokeh.layouts.column(
+        bokeh.layouts.row(*btns),
+        figure))
 
 
 def tile_indices(start, end):
