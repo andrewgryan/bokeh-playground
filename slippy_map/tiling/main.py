@@ -97,23 +97,29 @@ def main():
                       line_color="black",
                       source=rectangle_source)
 
+    tile_size = 256
     using_mercator = False
     if using_mercator:
         circumference = EARTH_CIRCUMFERENCE
     else:
         circumference = 5
-
-    tile_size = 256
     dp = resolution(global_resolution(circumference, tile_size), level)
-    si, sj = tile_index(*pixel_index(xc, yc, dp))
-    ei, ej = tile_index(*pixel_index(xc + dx, yc + dy, dp))
-    xs, ys = [], []
-    for i, j in tile_indices((si, sj), (ei, ej)):
-        xc, yc, length = tile(i, j, level)
-        x, y = square(xc, yc, length)
-        xs.append(x)
-        ys.append(y)
-    figure.patches(xs=xs, ys=ys,
+
+    def shade(xc, yc, dx, dy, dp):
+        si, sj = tile_index(*pixel_index(xc, yc, dp))
+        ei, ej = tile_index(*pixel_index(xc + dx, yc + dy, dp))
+        xs, ys = [], []
+        for i, j in tile_indices((si, sj), (ei, ej)):
+            xc, yc, length = tile(i, j, level)
+            x, y = square(xc, yc, length)
+            xs.append(x)
+            ys.append(y)
+        return {
+            "xs": xs,
+            "ys": ys
+        }
+    shade_source = bokeh.models.ColumnDataSource(shade(xc, yc, dx, dy, dp))
+    figure.patches(xs="xs", ys="ys", source=shade_source,
                    line_alpha=0,
                    fill_alpha=0.5,
                    fill_color=lc[level])
@@ -126,7 +132,8 @@ def main():
         xc = (max_width - dx) * np.random.random()
         yc = (max_height - dy) * np.random.random()
 
-        # Plot rectangle
+        shade_source.data = shade(xc, yc, dx, dy, dp)
+
         x, y = rectangle(xc, yc, dx, dy)
         rectangle_source.data = {
             "xs": [x],
