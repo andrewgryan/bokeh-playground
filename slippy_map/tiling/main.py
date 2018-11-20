@@ -1,4 +1,5 @@
 import bokeh.plotting
+import bokeh.layouts
 import numpy as np
 
 
@@ -71,9 +72,11 @@ def main():
     lc = {
         2: "green",
         3: "red",
-        4: "orange"
+        4: "orange",
+        5: "SteelBlue",
+        6: "Teal"
     }
-    level = 4
+    level = 6
     xs, ys = [], []
     for i in range(2**level):
         for j in range(2**level):
@@ -86,7 +89,13 @@ def main():
     # Fake x/y perimeter
     xc, yc, dx, dy = 1.5, 0.9, 3, 1.5
     x, y = rectangle(xc, yc, dx, dy)
-    figure.multi_line(xs=[x], ys=[y], line_color="black")
+    rectangle_source = bokeh.models.ColumnDataSource({
+        "xs": [x],
+        "ys": [y]
+    })
+    figure.multi_line(xs="xs", ys="ys",
+                      line_color="black",
+                      source=rectangle_source)
 
     using_mercator = False
     if using_mercator:
@@ -109,8 +118,26 @@ def main():
                    fill_alpha=0.5,
                    fill_color=lc[level])
 
+    def on_click():
+        max_width = 5
+        max_height = 5
+        dx = max_width * np.random.random()
+        dy = max_height * np.random.random()
+        xc = (max_width - dx) * np.random.random()
+        yc = (max_height - dy) * np.random.random()
+
+        # Plot rectangle
+        x, y = rectangle(xc, yc, dx, dy)
+        rectangle_source.data = {
+            "xs": [x],
+            "ys": [y]
+        }
+
+    btn = bokeh.models.Button()
+    btn.on_click(on_click)
+
     document = bokeh.plotting.curdoc()
-    document.add_root(figure)
+    document.add_root(bokeh.layouts.column(btn, figure))
 
 
 def tile_indices(start, end):
