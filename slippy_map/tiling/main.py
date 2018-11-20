@@ -69,10 +69,12 @@ def main():
     figure.y_range.on_change("start", callback)
     figure.y_range.on_change("end", callback)
 
-    min_level = 2
+    min_level = 0
     max_level = 6
     level = 4
     lc = {
+        0: "blue",
+        1: "gray",
         2: "green",
         3: "red",
         4: "orange",
@@ -134,25 +136,28 @@ def main():
             x, y = square(xc, yc, length)
             xs.append(x)
             ys.append(y)
+        print("{} tiles covering rectangle".format(len(xs)))
         return {
             "xs": xs,
-            "ys": ys
+            "ys": ys,
+            "fill_color": len(xs) * [lc[level]]
         }
     shade_source = bokeh.models.ColumnDataSource(shade(xc, yc, dx, dy, dp, level))
     figure.patches(xs="xs", ys="ys", source=shade_source,
                    line_alpha=0,
                    fill_alpha=0.5,
-                   fill_color=lc[level])
+                   fill_color="fill_color")
 
     def random_rectangle():
+        nonlocal xc, yc, dx, dy
         max_width = 5
         max_height = 5
         dx = max_width * np.random.random()
         dy = max_height * np.random.random()
         xc = (max_width - dx) * np.random.random()
         yc = (max_height - dy) * np.random.random()
-        dp = resolution(global_resolution(circumference, tile_size), level)
 
+        dp = resolution(global_resolution(circumference, tile_size), level)
         shade_source.data = shade(xc, yc, dx, dy, dp, level)
 
         x, y = rectangle(xc, yc, dx, dy)
@@ -161,24 +166,30 @@ def main():
             "ys": [y]
         }
 
+    def draw():
+        draw_grid(level)
+        dp = resolution(global_resolution(circumference, tile_size), level)
+        shade_source.data = shade(xc, yc, dx, dy, dp, level)
+
+
     def increment_level():
         nonlocal level
         if level < max_level:
             level += 1
-            draw_grid(level)
+            draw()
 
     def decrement_level():
         nonlocal level
         if level > min_level:
             level -= 1
-            draw_grid(level)
+            draw()
 
     btns = []
     for label, on_click in [
-            ("Random rectangle", random_rectangle),
-            ("+", increment_level),
-            ("-", decrement_level)
-        ]:
+                ("Random rectangle", random_rectangle),
+                ("+", increment_level),
+                ("-", decrement_level)
+            ]:
         btn = bokeh.models.Button(label=label)
         btn.on_click(on_click)
         btns.append(btn)
