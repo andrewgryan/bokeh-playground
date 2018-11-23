@@ -81,6 +81,7 @@ def main():
         5: "SteelBlue",
         6: "Teal"
     }
+    grid_visible = True
     grid_source = bokeh.models.ColumnDataSource({
         "xs": [],
         "ys": [],
@@ -106,7 +107,8 @@ def main():
             "line_color": len(xs) * [lc[level]]
         }
 
-    draw_grid(level)
+    if grid_visible:
+        draw_grid(level)
 
     # Fake x/y perimeter
     xc, yc, dx, dy = 1.5, 0.9, 3, 1.5
@@ -140,13 +142,18 @@ def main():
         return {
             "xs": xs,
             "ys": ys,
-            "fill_color": len(xs) * [lc[level]]
+            "fill_color": len(xs) * [lc[level]],
+            "line_color": len(xs) * [lc[level]]
         }
-    shade_source = bokeh.models.ColumnDataSource(shade(xc, yc, dx, dy, dp, level))
-    figure.patches(xs="xs", ys="ys", source=shade_source,
-                   line_alpha=0,
+
+    shade_source = bokeh.models.ColumnDataSource(
+        shade(xc, yc, dx, dy, dp, level))
+    figure.patches(xs="xs",
+                   ys="ys",
+                   source=shade_source,
                    fill_alpha=0.5,
-                   fill_color="fill_color")
+                   fill_color="fill_color",
+                   line_color="line_color")
 
     def random_rectangle():
         nonlocal xc, yc, dx, dy
@@ -167,7 +174,14 @@ def main():
         }
 
     def draw():
-        draw_grid(level)
+        if grid_visible:
+            draw_grid(level)
+        else:
+            grid_source.data = {
+                "xs": [],
+                "ys": [],
+                "line_color": []
+            }
         dp = resolution(global_resolution(circumference, tile_size), level)
         shade_source.data = shade(xc, yc, dx, dy, dp, level)
 
@@ -184,11 +198,17 @@ def main():
             level -= 1
             draw()
 
+    def toggle_grid():
+        nonlocal grid_visible
+        grid_visible = not grid_visible
+        draw()
+
     btns = []
     for label, on_click in [
                 ("Random rectangle", random_rectangle),
                 ("+", increment_level),
-                ("-", decrement_level)
+                ("-", decrement_level),
+                ("Toggle grid", toggle_grid)
             ]:
         btn = bokeh.models.Button(label=label)
         btn.on_click(on_click)
