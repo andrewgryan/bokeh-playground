@@ -42,6 +42,7 @@ labels = bokeh.models.LabelSet(
         angle="angle",
         text_font_size="10px",
         text_align="center",
+        text_baseline="middle",
         source=source)
 figure.add_layout(labels)
 
