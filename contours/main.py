@@ -5,9 +5,7 @@ import matplotlib.contour
 import matplotlib.colors
 
 
-def contour(source, X, Y, Z):
-    ax = plt.gca()
-    qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
+def contour(qcs):
     line_colors = []
     for c in qcs.collections:
         line_color = matplotlib.colors.rgb2hex(
@@ -15,39 +13,29 @@ def contour(source, X, Y, Z):
         line_colors += len(c.get_segments()) * [line_color]
     xs = [ss[:, 0].tolist() for s in qcs.allsegs for ss in s]
     ys = [ss[:, 1].tolist() for s in qcs.allsegs for ss in s]
-
-    # Tidy up references for garbage collector
-    for c in qcs.collections:
-        ax.collections.remove(c)
-
-    source.data = {
-            "xs": xs,
+    return {"xs": xs,
             "ys": ys,
             "line_color": line_colors}
-    return qcs
 
 
-def clabel(source, qcs):
-    def pad(text):
-        return " {} ".format(text)
-
-    qcs.clabel(inline=True)
-
-    # Scrape data from Texts
-    positions = np.array([t.get_position() for t in qcs.labelTexts])
+def clabel(txts):
+    positions = np.array([t.get_position() for t in txts])
     x = positions[:, 0]
     y = positions[:, 1]
-    angle = np.deg2rad([t.get_rotation() for t in qcs.labelTexts])
-    text = [t.get_text() for t in qcs.labelTexts]
+    angle = np.deg2rad([t.get_rotation() for t in txts])
+    text = [t.get_text() for t in txts]
     text = [pad(t) for t in text]
     text_color = [matplotlib.colors.rgb2hex(t.get_color(), keep_alpha=True)
-            for t in qcs.labelTexts]
-    source.data = dict(
-            x=x,
-            y=y,
-            text=text,
-            angle=angle,
-            text_color=text_color)
+            for t in txts]
+    return {"x": x,
+            "y": y,
+            "text": text,
+            "angle": angle,
+            "text_color": text_color}
+
+
+def pad(text):
+    return " {} ".format(text)
 
 
 def main():
@@ -84,12 +72,22 @@ def main():
     bokeh_figure.add_layout(labels)
 
     Z = np.cos(X) + np.sin(Y) + 2 * (X / X.max())
-    qcs = contour(multi_line_source, X, Y, Z)
-    clabel(label_set_source, qcs)
+    ax = plt.gca()
+    qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
+    multi_line_source.data = contour(qcs)
+    txts = qcs.clabel(inline=True)
+    label_set_source.data = clabel(txts)
+
+    for c in qcs.collections:
+        ax.collections.remove(c)
+    for t in qcs.labelTexts:
+        ax.artists.remove(t)
 
     Z = X**2 + Y**2
-    qcs = contour(multi_line_source, X, Y, Z)
-    clabel(label_set_source, qcs)
+    qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
+    multi_line_source.data = contour(qcs)
+    txts = qcs.clabel(inline=True)
+    label_set_source.data = clabel(txts)
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh_figure)
