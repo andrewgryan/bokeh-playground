@@ -19,8 +19,7 @@ line_colors = []
 for c in qcs.collections:
     line_color = matplotlib.colors.rgb2hex(
             c.get_color()[0], keep_alpha=True)
-    for s in c.get_segments():
-        line_colors.append(line_color)
+    line_colors += len(c.get_segments()) * [line_color]
 xs = [ss[:, 0].tolist() for s in qcs.allsegs for ss in s]
 ys = [ss[:, 1].tolist() for s in qcs.allsegs for ss in s]
 for c in qcs.collections:
