@@ -5,7 +5,7 @@ import matplotlib.contour
 import matplotlib.colors
 
 
-def contour(multi_line_source, label_set_source, X, Y, Z):
+def contour(source, X, Y, Z):
     ax = plt.gca()
     qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
     line_colors = []
@@ -20,11 +20,14 @@ def contour(multi_line_source, label_set_source, X, Y, Z):
     for c in qcs.collections:
         ax.collections.remove(c)
 
-    multi_line_source.data = {
+    source.data = {
             "xs": xs,
             "ys": ys,
             "line_color": line_colors}
+    return qcs
 
+
+def clabel(source, qcs):
     def pad(text):
         return " {} ".format(text)
 
@@ -39,7 +42,7 @@ def contour(multi_line_source, label_set_source, X, Y, Z):
     text = [pad(t) for t in text]
     text_color = [matplotlib.colors.rgb2hex(t.get_color(), keep_alpha=True)
             for t in qcs.labelTexts]
-    label_set_source.data = dict(
+    source.data = dict(
             x=x,
             y=y,
             text=text,
@@ -81,14 +84,12 @@ def main():
     bokeh_figure.add_layout(labels)
 
     Z = np.cos(X) + np.sin(Y) + 2 * (X / X.max())
-    contour(multi_line_source,
-            label_set_source,
-            X, Y, Z)
+    qcs = contour(multi_line_source, X, Y, Z)
+    clabel(label_set_source, qcs)
 
     Z = X**2 + Y**2
-    contour(multi_line_source,
-            label_set_source,
-            X, Y, Z)
+    qcs = contour(multi_line_source, X, Y, Z)
+    clabel(label_set_source, qcs)
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh_figure)
