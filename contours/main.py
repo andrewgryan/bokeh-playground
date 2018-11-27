@@ -22,6 +22,8 @@ for c in qcs.collections:
     line_colors += len(c.get_segments()) * [line_color]
 xs = [ss[:, 0].tolist() for s in qcs.allsegs for ss in s]
 ys = [ss[:, 1].tolist() for s in qcs.allsegs for ss in s]
+
+# Tidy up references to collections
 for c in qcs.collections:
     ax.collections.remove(c)
 
@@ -37,14 +39,18 @@ for t in qcs.labelTexts:
     x, y = t.get_position()
     xl.append(x)
     yl.append(y)
+
+positions = np.array([t.get_position() for t in qcs.labelTexts])
+x = positions[:, 0]
+y = positions[:, 1]
 angle = np.deg2rad([t.get_rotation() for t in qcs.labelTexts])
 text = [t.get_text() for t in qcs.labelTexts]
 text = [pad(t) for t in text]
 text_color = [matplotlib.colors.rgb2hex(t.get_color(), keep_alpha=True)
         for t in qcs.labelTexts]
 source = bokeh.models.ColumnDataSource(dict(
-        x=xl,
-        y=yl,
+        x=x,
+        y=y,
         text=text,
         angle=angle,
         text_color=text_color))
