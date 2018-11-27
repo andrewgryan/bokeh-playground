@@ -84,13 +84,19 @@ def main():
         ax.artists.remove(t)
 
     def click(X, Y, multi_line_source, label_set_source):
+        count = 0
         def wrapped():
-            Z = X**2 + Y**2
+            nonlocal count
+            if count % 2 == 0:
+                Z = X**2 + Y**2
+            else:
+                Z = np.cos(X) + np.sin(Y) + 2 * (X / X.max())
             ax = plt.gca()
             qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
             multi_line_source.data = contour(qcs)
             txts = qcs.clabel(inline=True)
             label_set_source.data = clabel(txts)
+            count += 1
         return wrapped
 
     btn = bokeh.models.Button()
