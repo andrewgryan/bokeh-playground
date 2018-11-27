@@ -5,7 +5,7 @@ import matplotlib.contour
 import matplotlib.colors
 
 
-def contour(bokeh_figure, X, Y, Z):
+def contour(multi_line_source, label_set_source, X, Y, Z):
     ax = plt.gca()
     qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
     line_colors = []
@@ -20,7 +20,10 @@ def contour(bokeh_figure, X, Y, Z):
     for c in qcs.collections:
         ax.collections.remove(c)
 
-    bokeh_figure.multi_line(xs=xs, ys=ys, line_color=line_colors)
+    multi_line_source.data = {
+            "xs": xs,
+            "ys": ys,
+            "line_color": line_colors}
 
     def pad(text):
         return " {} ".format(text)
@@ -36,12 +39,34 @@ def contour(bokeh_figure, X, Y, Z):
     text = [pad(t) for t in text]
     text_color = [matplotlib.colors.rgb2hex(t.get_color(), keep_alpha=True)
             for t in qcs.labelTexts]
-    source = bokeh.models.ColumnDataSource(dict(
+    label_set_source.data = dict(
             x=x,
             y=y,
             text=text,
             angle=angle,
-            text_color=text_color))
+            text_color=text_color)
+
+
+def main():
+    bokeh_figure = bokeh.plotting.figure(
+            sizing_mode="stretch_both")
+
+    x = np.linspace(-10, 10, 100)
+    y = np.linspace(-10, 10, 100)
+    X, Y = np.meshgrid(x, y)
+
+    multi_line_source = bokeh.models.ColumnDataSource({
+        "xs": [],
+        "ys": [],
+        "line_color": [],
+        })
+    bokeh_figure.multi_line(
+            xs="xs",
+            ys="ys",
+            line_color="line_color",
+            source=multi_line_source)
+
+    label_set_source = bokeh.models.ColumnDataSource({})
     labels = bokeh.models.LabelSet(
             x="x",
             y="y",
@@ -52,23 +77,21 @@ def contour(bokeh_figure, X, Y, Z):
             text_align="center",
             text_baseline="middle",
             background_fill_color="white",
-            source=source)
+            source=label_set_source)
     bokeh_figure.add_layout(labels)
 
-
-def main():
-    figure = bokeh.plotting.figure(
-            sizing_mode="stretch_both")
-
-    x = np.linspace(-10, 10, 100)
-    y = np.linspace(-10, 10, 100)
-    X, Y = np.meshgrid(x, y)
     Z = np.cos(X) + np.sin(Y) + 2 * (X / X.max())
+    contour(multi_line_source,
+            label_set_source,
+            X, Y, Z)
 
-    contour(figure, X, Y, Z)
+    Z = X**2 + Y**2
+    contour(multi_line_source,
+            label_set_source,
+            X, Y, Z)
 
     document = bokeh.plotting.curdoc()
-    document.add_root(figure)
+    document.add_root(bokeh_figure)
 
 
 if __name__.startswith("bk"):
