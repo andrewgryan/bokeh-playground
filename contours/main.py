@@ -83,13 +83,21 @@ def main():
     for t in qcs.labelTexts:
         ax.artists.remove(t)
 
-    Z = X**2 + Y**2
-    qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
-    multi_line_source.data = contour(qcs)
-    txts = qcs.clabel(inline=True)
-    label_set_source.data = clabel(txts)
+    def click(X, Y, multi_line_source, label_set_source):
+        def wrapped():
+            Z = X**2 + Y**2
+            ax = plt.gca()
+            qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
+            multi_line_source.data = contour(qcs)
+            txts = qcs.clabel(inline=True)
+            label_set_source.data = clabel(txts)
+        return wrapped
+
+    btn = bokeh.models.Button()
+    btn.on_click(click(X, Y, multi_line_source, label_set_source))
 
     document = bokeh.plotting.curdoc()
+    document.add_root(btn)
     document.add_root(bokeh_figure)
 
 
