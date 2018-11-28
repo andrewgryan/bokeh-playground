@@ -75,7 +75,7 @@ def main():
     ax = plt.gca()
     qcs = matplotlib.contour.QuadContourSet(ax, X, Y, Z)
     multi_line_source.data = contour(qcs)
-    txts = qcs.clabel(inline=True)
+    txts = qcs.clabel(inline=True, fmt="%d hPa")
     label_set_source.data = clabel(txts)
 
     for c in qcs.collections:
