@@ -18,7 +18,7 @@ def main():
     bokeh_figure.add_tile(tile)
 
     # Define grid
-    nx, ny = 10, 10
+    nx, ny = 20, 30
     x = np.linspace(90, 150, nx)
     y = np.linspace(-10, 30, ny)
     grid_x, grid_y = np.meshgrid(x, y)
@@ -44,31 +44,30 @@ def main():
             zt,
             color_mapper)
 
-    # Linear space in Google Mercator projection
-    x = np.linspace(xt.min(), xt.max(), nx)
-    y = np.linspace(yt.min(), yt.max(), ny)
-    x, y = np.meshgrid(x, y)
-
-    # Interpolate 'unstructured' grid
-    src_x = xt
-    src_y = yt
-    src_z = zt
-    dst_x = x
-    dst_y = y
-    dst_z = scipy.interpolate.griddata(
-            (src_x, src_y), src_z,
-            (dst_x, dst_y))
-    print(dst_z)
+    xe, ye, ze = evenly_space(xt, yt, zt, (nx, ny))
 
     # Plot filled color circles
     colored_circle(bokeh_figure,
-            dst_x.flatten(),
-            dst_y.flatten(),
-            dst_z.flatten(),
+            xe.flatten(),
+            ye.flatten(),
+            ze.flatten(),
             color_mapper)
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh_figure)
+
+
+def evenly_space(x, y, z, shape):
+    """Map unstructured to regular grid"""
+    nx, ny = shape
+    src_x, src_y, src_z = x, y, z
+    dst_x = np.linspace(x.min(), x.max(), nx)
+    dst_y = np.linspace(y.min(), y.max(), ny)
+    dst_x, dst_y = np.meshgrid(dst_x, dst_y)
+    dst_z = scipy.interpolate.griddata(
+            (src_x, src_y), src_z,
+            (dst_x, dst_y))
+    return dst_x, dst_y, dst_z
 
 
 def colored_circle(bokeh_figure, x, y, z, color_mapper):
