@@ -18,7 +18,7 @@ def main():
     bokeh_figure.add_tile(tile)
 
     # Define grid
-    nx, ny = 20, 30
+    nx, ny = 10, 5
     x = np.linspace(90, 150, nx)
     y = np.linspace(-10, 30, ny)
     grid_x, grid_y = np.meshgrid(x, y)
@@ -44,7 +44,9 @@ def main():
             zt,
             color_mapper)
 
-    xe, ye, ze = evenly_space(xt, yt, zt, (nx, ny))
+    xe, ye, ze = regular_grid(xt.reshape(ny, nx),
+                              yt.reshape(ny, nx),
+                              zt.reshape(ny, nx))
 
     # Plot filled color circles
     colored_circle(bokeh_figure,
@@ -57,17 +59,28 @@ def main():
     document.add_root(bokeh_figure)
 
 
-def evenly_space(x, y, z, shape):
-    """Map unstructured to regular grid"""
-    nx, ny = shape
-    src_x, src_y, src_z = x, y, z
-    dst_x = np.linspace(x.min(), x.max(), nx)
-    dst_y = np.linspace(y.min(), y.max(), ny)
-    dst_x, dst_y = np.meshgrid(dst_x, dst_y)
-    dst_z = scipy.interpolate.griddata(
-            (src_x, src_y), src_z,
-            (dst_x, dst_y))
-    return dst_x, dst_y, dst_z
+def regular_grid(x, y, z):
+    """Map unstructured to regular grid
+
+    Assumptions are made on the shape of the input and desired
+    output arrays
+
+    :param x: 2D array shaped (ny, nx)
+    :param y: 2D array shaped (ny, nx)
+    :param z: 2D array shaped (ny, nx)
+    :returns: x, y, z mapped to regular grid with
+              same shape as input arrays
+    """
+    if isinstance(z, list):
+        z = np.asarray(z)
+    ny, nx = x.shape
+    xe, ye = np.meshgrid(
+        np.linspace(x.min(), x.max(), nx),
+        np.linspace(y.min(), y.max(), ny))
+    ze = scipy.interpolate.griddata(
+            (x.flatten(), y.flatten()), z.flatten(),
+            (xe, ye))
+    return xe, ye, ze
 
 
 def colored_circle(bokeh_figure, x, y, z, color_mapper):
@@ -86,4 +99,3 @@ def colored_circle(bokeh_figure, x, y, z, color_mapper):
 
 if __name__.startswith("bk"):
     main()
-
