@@ -1,7 +1,9 @@
 import bokeh.plotting
 import bokeh.models
+import bokeh.palettes
 import numpy as np
 import cartopy
+import scipy.interpolate
 
 
 def main():
@@ -19,26 +21,68 @@ def main():
     nx, ny = 10, 10
     x = np.linspace(90, 150, nx)
     y = np.linspace(-10, 30, ny)
-    X, Y = np.meshgrid(x, y)
+    grid_x, grid_y = np.meshgrid(x, y)
 
     # Map to Google Mercator projection
     values = cartopy.crs.Mercator.GOOGLE.transform_points(
             cartopy.crs.PlateCarree(),
-            X.flatten(), Y.flatten())
+            grid_x.flatten(), grid_y.flatten())
     xt, yt, _ = values.T
 
-    bokeh_figure.circle(x=xt, y=yt)
+    zt = yt
+
+    palette = bokeh.palettes.Viridis256
+    color_mapper = bokeh.transform.linear_cmap(
+            field_name="z",
+            palette=palette,
+            low=zt.min(),
+            high=zt.max())
+
+    colored_circle(bokeh_figure,
+            xt,
+            yt,
+            zt,
+            color_mapper)
 
     # Linear space in Google Mercator projection
     x = np.linspace(xt.min(), xt.max(), nx)
     y = np.linspace(yt.min(), yt.max(), ny)
     x, y = np.meshgrid(x, y)
-    bokeh_figure.circle(x=x.flatten(), y=y.flatten(),
-            fill_color="red",
-            line_color="red")
+
+    # Interpolate 'unstructured' grid
+    src_x = xt
+    src_y = yt
+    src_z = zt
+    dst_x = x
+    dst_y = y
+    dst_z = scipy.interpolate.griddata(
+            (src_x, src_y), src_z,
+            (dst_x, dst_y))
+    print(dst_z)
+
+    # Plot filled color circles
+    colored_circle(bokeh_figure,
+            dst_x.flatten(),
+            dst_y.flatten(),
+            dst_z.flatten(),
+            color_mapper)
 
     document = bokeh.plotting.curdoc()
     document.add_root(bokeh_figure)
+
+
+def colored_circle(bokeh_figure, x, y, z, color_mapper):
+    source = bokeh.models.ColumnDataSource({
+        "x": x,
+        "y": y,
+        "z": z
+        })
+    bokeh_figure.circle(
+            x="x",
+            y="y",
+            fill_color=color_mapper,
+            line_color=color_mapper,
+            source=source)
 
 
 if __name__.startswith("bk"):
