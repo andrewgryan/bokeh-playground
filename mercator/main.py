@@ -4,6 +4,7 @@ import bokeh.palettes
 import numpy as np
 import cartopy
 import scipy.interpolate
+import stretch
 
 
 def main():
@@ -24,10 +25,9 @@ def main():
     grid_x, grid_y = np.meshgrid(x, y)
 
     # Map to Google Mercator projection
-    values = cartopy.crs.Mercator.GOOGLE.transform_points(
-            cartopy.crs.PlateCarree(),
-            grid_x.flatten(), grid_y.flatten())
-    xt, yt, _ = values.T
+    gl = cartopy.crs.Mercator.GOOGLE
+    pc = cartopy.crs.PlateCarree()
+    xt, yt, _ = gl.transform_points(pc, grid_x.flatten(), grid_y.flatten()).T
 
     zt = yt
 
@@ -44,9 +44,18 @@ def main():
             zt,
             color_mapper)
 
-    xe, ye, ze = regular_grid(xt.reshape(ny, nx),
-                              yt.reshape(ny, nx),
-                              zt.reshape(ny, nx))
+    use_stretch = True
+    if use_stretch:
+        ym = stretch.web_mercator_y(y)
+        transform = stretch.resample_transform(ym)
+        xm = xt.reshape(ny, nx)[0, :]
+        xe, ye = np.meshgrid(xm, stretch.equal_spaced(ym))
+        ze = transform(xe)
+        print(xe.shape, ye.shape, ze.shape)
+    else:
+        xe, ye, ze = regular_grid(xt.reshape(ny, nx),
+                                  yt.reshape(ny, nx),
+                                  zt.reshape(ny, nx))
 
     # Plot filled color circles
     colored_circle(bokeh_figure,
