@@ -13,19 +13,25 @@ def web_mercator_y(latitudes):
     return y
 
 
-def resample_transform(y, dtype=np.float):
+def stretch_transform(y, axis=1, dtype=np.float):
     """Generate latitude/y stretching transform"""
     index = np.arange(len(y), dtype=dtype)
     index_map = scipy.interpolate.interp1d(y, index)
-    j = index_map(equal_spaced(y))
+    mapped_index = index_map(equal_spaced(y))
 
     def transform(values):
         if isinstance(values, list):
             values = np.asarray(values)
         assert values.ndim == 2, 'Only able to stretch 2D arrays'
-        i = np.arange(values.shape[0], dtype=dtype)
+        if axis == 1:
+            i = np.arange(values.shape[0], dtype=dtype)
+            j = mapped_index
+        else:
+            i = mapped_index
+            j = np.arange(values.shape[1], dtype=dtype)
         return scipy.ndimage.map_coordinates(values,
-                                             np.meshgrid(i, j, indexing='ij'))
+                                             np.meshgrid(i, j, indexing='ij'),
+                                             order=1)
 
     return transform
 

@@ -47,11 +47,10 @@ def main():
     use_stretch = True
     if use_stretch:
         ym = stretch.web_mercator_y(y)
-        transform = stretch.resample_transform(ym)
+        transform = stretch.stretch_transform(ym, axis=0)
         xm = xt.reshape(ny, nx)[0, :]
         xe, ye = np.meshgrid(xm, stretch.equal_spaced(ym))
-        ze = transform(xe)
-        print(xe.shape, ye.shape, ze.shape)
+        ze = transform(ye)
     else:
         xe, ye, ze = regular_grid(xt.reshape(ny, nx),
                                   yt.reshape(ny, nx),
