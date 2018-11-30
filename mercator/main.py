@@ -47,7 +47,7 @@ def main():
 
     # Plot filled color circles
     v = zt2d - ze
-    palette = bokeh.palettes.RdBu[11]
+    palette = bokeh.palettes.Viridis256
     x = xe.flatten()
     y = ye.flatten()
     z = v.flatten()
@@ -63,12 +63,28 @@ def main():
         "y": y,
         "z": z
         })
-    bokeh_figure.circle(
-            x="x",
-            y="y",
-            fill_color={"field": "z", "transform": color_mapper},
-            line_color={"field": "z", "transform": color_mapper},
-            source=source)
+    # bokeh_figure.circle(
+    #         x="x",
+    #         y="y",
+    #         fill_color={"field": "z", "transform": color_mapper},
+    #         line_color={"field": "z", "transform": color_mapper},
+    #         source=source)
+    image_source = bokeh.models.ColumnDataSource({
+        "x": [x.min()],
+        "y": [y.min()],
+        "dw": [x.max() - x.min()],
+        "dh": [y.max() - y.min()],
+        "image": [v]
+        })
+    bokeh_figure.image(
+        x="x",
+        y="y",
+        dw="dw",
+        dh="dh",
+        image="image",
+        source=image_source,
+        color_mapper=color_mapper
+    )
     color_bar = bokeh.models.ColorBar(
         color_mapper=color_mapper,
         orientation='horizontal',
