@@ -19,9 +19,9 @@ def main():
     bokeh_figure.add_tile(tile)
 
     # Define grid
-    nx, ny = 10, 5
+    nx, ny = 40, 50
     x = np.linspace(90, 150, nx)
-    y = np.linspace(-10, 30, ny)
+    y = np.linspace(-70, 70, ny)
     x2d, y2d = np.meshgrid(x, y)
 
     # Map to Google Mercator projection
@@ -35,19 +35,6 @@ def main():
     yt2d = yt1d.reshape(ny, nx)
     zt2d = zt1d.reshape(ny, nx)
 
-    palette = bokeh.palettes.Viridis256
-    color_mapper = bokeh.transform.linear_cmap(
-            field_name="z",
-            palette=palette,
-            low=zt1d.min(),
-            high=zt1d.max())
-
-    colored_circle(bokeh_figure,
-            xt1d,
-            yt1d,
-            zt1d,
-            color_mapper)
-
     use_stretch = True
     if use_stretch:
         xm = xt2d[0, :]
@@ -59,14 +46,75 @@ def main():
         xe, ye, ze = regular_grid(xt2d, yt2d, zt2d)
 
     # Plot filled color circles
-    colored_circle(bokeh_figure,
-            xe.flatten(),
-            ye.flatten(),
-            ze.flatten(),
-            color_mapper)
+    v = zt2d - ze
+    palette = bokeh.palettes.RdBu[11]
+    x = xe.flatten()
+    y = ye.flatten()
+    z = v.flatten()
+    low = z.min()
+    high = z.max()
+    color_mapper = bokeh.models.LinearColorMapper(
+        palette=palette,
+        low=low,
+        high=high
+    )
+    source = bokeh.models.ColumnDataSource({
+        "x": x,
+        "y": y,
+        "z": z
+        })
+    bokeh_figure.circle(
+            x="x",
+            y="y",
+            fill_color={"field": "z", "transform": color_mapper},
+            line_color={"field": "z", "transform": color_mapper},
+            source=source)
+    color_bar = bokeh.models.ColorBar(
+        color_mapper=color_mapper,
+        orientation='horizontal',
+        background_fill_alpha=0,
+        location='bottom_center')
+    bokeh_figure.add_layout(color_bar, 'center')
+
+    button = bokeh.models.Button()
+    button.on_click(changer(bokeh_figure, color_mapper, source))
 
     document = bokeh.plotting.curdoc()
+    document.add_root(button)
     document.add_root(bokeh_figure)
+
+
+def changer(
+        bokeh_figure,
+        color_mapper,
+        source):
+
+    def wrapped():
+        x_start = bokeh_figure.x_range.start
+        x_end = bokeh_figure.x_range.end
+        y_start = bokeh_figure.y_range.start
+        y_end = bokeh_figure.y_range.end
+
+        x = source.data["x"]
+        y = source.data["y"]
+        z = source.data["z"]
+
+        pts = np.where((x < x_end) & (x > x_start) &
+                       (y < y_end) & (y > y_start))
+        values = z[pts]
+        if len(values) == 0:
+            return
+
+        low = values.min()
+        high = values.max()
+        if low == high:
+            low += 0.1
+            high -= 0.1
+
+        color_mapper.low = low
+        color_mapper.high = high
+
+    return wrapped
 
 
 def regular_grid(x, y, z):
@@ -91,20 +139,6 @@ def regular_grid(x, y, z):
             (x.flatten(), y.flatten()), z.flatten(),
             (xe, ye))
     return xe, ye, ze
-
-
-def colored_circle(bokeh_figure, x, y, z, color_mapper):
-    source = bokeh.models.ColumnDataSource({
-        "x": x,
-        "y": y,
-        "z": z
-        })
-    bokeh_figure.circle(
-            x="x",
-            y="y",
-            fill_color=color_mapper,
-            line_color=color_mapper,
-            source=source)
 
 
 if __name__.startswith("bk"):
