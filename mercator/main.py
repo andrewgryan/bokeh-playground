@@ -22,39 +22,41 @@ def main():
     nx, ny = 10, 5
     x = np.linspace(90, 150, nx)
     y = np.linspace(-10, 30, ny)
-    grid_x, grid_y = np.meshgrid(x, y)
+    x2d, y2d = np.meshgrid(x, y)
 
     # Map to Google Mercator projection
     gl = cartopy.crs.Mercator.GOOGLE
     pc = cartopy.crs.PlateCarree()
-    xt, yt, _ = gl.transform_points(pc, grid_x.flatten(), grid_y.flatten()).T
+    xt1d, yt1d, _ = gl.transform_points(pc, x2d.flatten(), y2d.flatten()).T
 
-    zt = yt
+    zt1d = yt1d
+
+    xt2d = xt1d.reshape(ny, nx)
+    yt2d = yt1d.reshape(ny, nx)
+    zt2d = zt1d.reshape(ny, nx)
 
     palette = bokeh.palettes.Viridis256
     color_mapper = bokeh.transform.linear_cmap(
             field_name="z",
             palette=palette,
-            low=zt.min(),
-            high=zt.max())
+            low=zt1d.min(),
+            high=zt1d.max())
 
     colored_circle(bokeh_figure,
-            xt,
-            yt,
-            zt,
+            xt1d,
+            yt1d,
+            zt1d,
             color_mapper)
 
     use_stretch = True
     if use_stretch:
+        xm = xt2d[0, :]
         ym = stretch.web_mercator_y(y)
         transform = stretch.stretch_transform(ym, axis=0)
-        xm = xt.reshape(ny, nx)[0, :]
         xe, ye = np.meshgrid(xm, stretch.equal_spaced(ym))
-        ze = transform(ye)
+        ze = transform(zt2d)
     else:
-        xe, ye, ze = regular_grid(xt.reshape(ny, nx),
-                                  yt.reshape(ny, nx),
-                                  zt.reshape(ny, nx))
+        xe, ye, ze = regular_grid(xt2d, yt2d, zt2d)
 
     # Plot filled color circles
     colored_circle(bokeh_figure,
