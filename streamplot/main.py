@@ -29,15 +29,22 @@ def main():
 
 
 def on_click(line_source, arrow_source):
+    click = 0
     def wrapper():
+        nonlocal click
         x = np.linspace(0, 1, 5)
         y = np.linspace(0, 1, 5)
+
         u, v = np.meshgrid(x, y)
-        u = u + v
+        if click % 2 == 0:
+            u = u + v
+        else:
+            u = u - v
         streamplot(x, y, u, v,
                    line_color="Coral",
                    line_source=line_source,
                    arrow_source=arrow_source)
+        click += 1
     return wrapper
 
 
