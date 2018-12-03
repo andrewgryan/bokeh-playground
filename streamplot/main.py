@@ -61,7 +61,7 @@ def streamplot(bokeh_figure, x, y, u, v,
             y_start="y_start",
             x_end="x_end",
             y_end="y_end",
-            line_color=line_color,
+            line_alpha=0,
             source=source)
     bokeh_figure.add_layout(arrow)
 
