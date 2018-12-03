@@ -15,6 +15,12 @@ for path in artist.lines.get_paths():
     x, y = path.vertices.T
     xs.append(x)
     ys.append(y)
+ax = plt.gca()
+for patch in ax.patches:
+    path = patch.get_path()
+    x, y = path.vertices.T
+    xs.append(x)
+    ys.append(y)
 bokeh_figure.multi_line(xs=xs, ys=ys)
 document = bokeh.plotting.curdoc()
 document.add_root(bokeh_figure)
