@@ -25,7 +25,8 @@ def main():
 
 
 def streamplot(bokeh_figure, x, y, u, v,
-        line_color="black"):
+        line_color="black",
+        head_size=12):
     with save_patches():
         artist = plt.streamplot(x, y, u, v)
         posA_posBs = [p._posA_posB for p in artist.arrows.patches]
@@ -43,6 +44,7 @@ def streamplot(bokeh_figure, x, y, u, v,
         (x_start, y_start), (x_end, y_end) = posA_posB
         arrow = bokeh.models.Arrow(
                 end=bokeh.models.OpenHead(
+                    size=head_size,
                     line_color=line_color),
                 x_start=x_start,
                 y_start=y_start,
