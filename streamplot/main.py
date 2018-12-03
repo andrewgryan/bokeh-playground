@@ -40,18 +40,30 @@ def streamplot(bokeh_figure, x, y, u, v,
     bokeh_figure.multi_line(xs=xs, ys=ys, line_color=line_color)
 
     # Open arrow head
+    x_starts, y_starts, x_ends, y_ends = [], [], [], []
     for posA_posB in posA_posBs:
         (x_start, y_start), (x_end, y_end) = posA_posB
-        arrow = bokeh.models.Arrow(
-                end=bokeh.models.OpenHead(
-                    size=head_size,
-                    line_color=line_color),
-                x_start=x_start,
-                y_start=y_start,
-                x_end=x_end,
-                y_end=y_end,
-                line_color=line_color)
-        bokeh_figure.add_layout(arrow)
+        x_starts.append(x_start)
+        y_starts.append(y_start)
+        x_ends.append(x_end)
+        y_ends.append(y_end)
+    source = bokeh.models.ColumnDataSource({
+        "x_start": x_starts,
+        "y_start": y_starts,
+        "x_end": x_ends,
+        "y_end": y_ends,
+    })
+    arrow = bokeh.models.Arrow(
+            end=bokeh.models.OpenHead(
+                size=head_size,
+                line_color=line_color),
+            x_start="x_start",
+            y_start="y_start",
+            x_end="x_end",
+            y_end="y_end",
+            line_color=line_color,
+            source=source)
+    bokeh_figure.add_layout(arrow)
 
 
 @contextmanager
