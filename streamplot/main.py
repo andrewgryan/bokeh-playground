@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 from contextlib import contextmanager
 import os
 import sys
-sys.path.insert(0, os.path.join(os.path.basename(__file__), '..'))
-from util import timer
 
 
 def main():
@@ -48,7 +46,6 @@ def on_click(line_source, arrow_source):
     return wrapper
 
 
-@timer
 def streamplot(x, y, u, v,
         line_color="black",
         head_size=12,
@@ -59,22 +56,7 @@ def streamplot(x, y, u, v,
     if bokeh_figure is None:
         msg = 'please specify line_source and arrow_source'
         assert (arrow_source is not None) and (line_source is not None), msg
-
-    with save_patches():
-        artist = plt.streamplot(x, y, u, v)
-        posA_posBs = [p._posA_posB for p in artist.arrows.patches]
-
-    xs = []
-    ys = []
-    for path in artist.lines.get_paths():
-        x, y = path.vertices.T
-        xs.append(x)
-        ys.append(y)
-
-    line_data = {
-        "xs": xs,
-        "ys": ys
-    }
+    line_data, arrow_data = streamplot_data(x, y, u, v)
     if line_source is not None:
         line_source.data = line_data
     else:
@@ -83,22 +65,6 @@ def streamplot(x, y, u, v,
                                 ys="ys",
                                 line_color=line_color,
                                 source=line_source)
-
-    # Open arrow head
-    x_starts, y_starts, x_ends, y_ends = [], [], [], []
-    for posA_posB in posA_posBs:
-        (x_start, y_start), (x_end, y_end) = posA_posB
-        x_starts.append(x_start)
-        y_starts.append(y_start)
-        x_ends.append(x_end)
-        y_ends.append(y_end)
-
-    arrow_data = {
-        "x_start": x_starts,
-        "y_start": y_starts,
-        "x_end": x_ends,
-        "y_end": y_ends,
-    }
     if arrow_source is not None:
         arrow_source.data = arrow_data
     else:
@@ -115,6 +81,70 @@ def streamplot(x, y, u, v,
                 source=arrow_source)
         bokeh_figure.add_layout(arrow)
     return line_source, arrow_source
+
+
+def streamplot_data(x, y, u, v):
+    """Data that drives streamplot glyphs"""
+    if isinstance(x, list):
+        x = np.asarray(x)
+    if isinstance(y, list):
+        y = np.asarray(y)
+    if isinstance(u, list):
+        u = np.asarray(u)
+    if isinstance(v, list):
+        v = np.asarray(v)
+
+    with save_patches():
+        artist = plt.streamplot(x, y, u, v)
+        posA_posBs = [p._posA_posB for p in artist.arrows.patches]
+
+    xs = []
+    ys = []
+    tolerance = 0.01
+    previous = None
+    for path in artist.lines.get_paths():
+        current = path.vertices
+        if previous is None:
+            # First segment contains two points
+            x = list(current[:, 0])
+            y = list(current[:, 1])
+        elif all(np.abs(current[0] - previous[1]) < tolerance):
+            # Append next point to existing segment
+            x.append(current[1, 0])
+            y.append(current[1, 1])
+        else:
+            # Save old segment
+            xs.append(x)
+            ys.append(y)
+            # Start new segment
+            x = list(current[:, 0])
+            y = list(current[:, 1])
+        previous = current
+
+    if len(x) > 0:
+        # Save final segment
+        xs.append(x)
+        ys.append(y)
+
+    line_data = {
+        "xs": xs,
+        "ys": ys
+    }
+
+    x_starts, y_starts, x_ends, y_ends = [], [], [], []
+    for posA_posB in posA_posBs:
+        (x_start, y_start), (x_end, y_end) = posA_posB
+        x_starts.append(x_start)
+        y_starts.append(y_start)
+        x_ends.append(x_end)
+        y_ends.append(y_end)
+    arrow_data = {
+        "x_start": x_starts,
+        "y_start": y_starts,
+        "x_end": x_ends,
+        "y_end": y_ends,
+    }
+    return line_data, arrow_data
 
 
 @contextmanager
