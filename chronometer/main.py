@@ -24,10 +24,14 @@ hover_tool = bokeh.models.HoverTool(
             'x': 'datetime',
             's': 'datetime'
             })
+pan_tool = bokeh.models.PanTool(dimensions="width")
 figure = bokeh.plotting.figure(x_axis_type='datetime',
                                plot_height=100,
                                plot_width=600,
-                               tools=["tap", hover_tool],
+                               tools=[
+                                   "tap",
+                                   hover_tool,
+                                   pan_tool],
                                toolbar_location=None)
 figure.toolbar.active_inspect = hover_tool
 figure.ygrid.grid_line_color = None
@@ -79,9 +83,24 @@ for d in dates:
     source.selected.on_change('indices', on_change(source, div))
 
 
-widgets = [
-        div,
-        bokeh.models.DatePicker(),
-        ]
+widgets = [div]
+
+def plus():
+    def wrapper():
+        print("plus")
+    return wrapper
+
+def minus():
+    def wrapper():
+        print("minus")
+    return wrapper
+
+plus_btn = bokeh.models.Button(label="+")
+plus_btn.on_click(plus())
+minus_btn = bokeh.models.Button(label="-")
+minus_btn.on_click(minus())
+btns = [plus_btn, minus_btn]
+
 document.add_root(bokeh.layouts.widgetbox(*widgets))
+document.add_root(bokeh.layouts.row(*btns))
 document.add_root(figure)
