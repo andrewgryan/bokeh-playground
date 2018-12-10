@@ -44,6 +44,7 @@ figure.yaxis.ticker = [0, 12, 24, 48]
 
 # Display all dates
 div = bokeh.models.Div()
+sources = []
 for d in dates:
     y = np.array([3 * i for i in range(12)])
     x = np.array([d + dt.timedelta(hours=float(h))
@@ -81,24 +82,30 @@ for d in dates:
                 div.text = msg
         return wrapper
     source.selected.on_change('indices', on_change(source, div))
-
+    sources.append(source)
 
 widgets = [div]
 
-def plus():
+def plus(sources):
     def wrapper():
-        print("plus")
+        for source in sources:
+            if len(source.selected.indices) > 0:
+                i = source.selected.indices[0]
+                source.selected.indices = [i + 1]
     return wrapper
 
-def minus():
+def minus(sources):
     def wrapper():
-        print("minus")
+        for source in sources:
+            if len(source.selected.indices) > 0:
+                i = source.selected.indices[0]
+                source.selected.indices = [i - 1]
     return wrapper
 
 plus_btn = bokeh.models.Button(label="+")
-plus_btn.on_click(plus())
+plus_btn.on_click(plus(sources))
 minus_btn = bokeh.models.Button(label="-")
-minus_btn.on_click(minus())
+minus_btn.on_click(minus(sources))
 btns = [plus_btn, minus_btn]
 
 document.add_root(bokeh.layouts.widgetbox(*widgets))
