@@ -102,12 +102,19 @@ def minus(sources):
                 source.selected.indices = [i - 1]
     return wrapper
 
-plus_btn = bokeh.models.Button(label="+")
+plus_btn = bokeh.models.Button(label="+", width=50)
 plus_btn.on_click(plus(sources))
-minus_btn = bokeh.models.Button(label="-")
+minus_btn = bokeh.models.Button(label="-", width=50)
 minus_btn.on_click(minus(sources))
 btns = [plus_btn, minus_btn]
 
+div = bokeh.models.Div(text="Navigate:")
+rdo_grp = bokeh.models.RadioGroup(labels=[
+    "Time", "Forecast", "Run"], active=2, inline=True)
+def callback(attr, old, new):
+    print(attr, old, new)
+rdo_grp.on_change("active", callback)
+
 document.add_root(bokeh.layouts.widgetbox(*widgets))
-document.add_root(bokeh.layouts.row(*btns))
+document.add_root(bokeh.layouts.row(div, rdo_grp, plus_btn, minus_btn, width=100))
 document.add_root(figure)
