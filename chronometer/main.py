@@ -112,7 +112,15 @@ div = bokeh.models.Div(text="Navigate:")
 rdo_grp = bokeh.models.RadioGroup(labels=[
     "Time", "Forecast", "Run"], active=2, inline=True)
 def callback(attr, old, new):
-    print(attr, old, new)
+    if new == 0:
+        # Group glyphs by Time
+        pass
+    elif new == 1:
+        # Group glyphs by Forecast length
+        pass
+    elif new == 2:
+        # Group glyphs by Model Run
+        pass
 rdo_grp.on_change("active", callback)
 
 document.add_root(bokeh.layouts.widgetbox(*widgets))
