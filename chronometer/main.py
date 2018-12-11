@@ -64,72 +64,98 @@ def main():
     ys = []
     zs = []
     for date in dates:
-        y = forecast_hours
-        x = np.array([date + dt.timedelta(hours=float(h))
-            for h in forecast_hours], dtype=object)
-        z = np.array(len(forecast_hours) * [date], dtype=object)
-        xs.append(x)
-        ys.append(y)
-        zs.append(z)
-    print("By model run", len(xs))
+        y = forecast_hours.tolist()
+        x = [date + dt.timedelta(hours=float(h))
+            for h in forecast_hours]
+        z = len(forecast_hours) * [date]
+        xs += x
+        ys += y
+        zs += z
+    x, y, z = xs, ys, zs
+    print("All forecast/time data", len(x))
 
-    for x, y, z in zip(xs, ys, zs):
-        source = bokeh.models.ColumnDataSource({
-            "x": x,
-            "y": y,
-            "z": z
-            })
-        renderer = figure.square(x="x", y="y", size=8,
-                source=source,
-                line_color=None)
-        renderer.selection_glyph = bokeh.models.Square(
-                fill_alpha=1,
-                fill_color="Red",
-                line_color="Black")
-        renderer.nonselection_glyph = bokeh.models.Square(
-                fill_alpha=0.2,
-                fill_color="grey",
-                line_color=None)
+    source = bokeh.models.ColumnDataSource({
+        "x": x,
+        "y": y,
+        "z": z
+        })
+    renderer = figure.square(x="x", y="y", size=8,
+            source=source,
+            line_color=None,
+            nonselection_alpha=1,
+            nonselection_line_color=None)
+    renderer.selection_glyph = bokeh.models.Square(
+            fill_alpha=1,
+            fill_color="Red",
+            line_color="Black")
 
-        def on_change(source, div):
-            def wrapper(attr, old, new):
-                if len(new) > 0:
-                    i = new[0]
-                    x, y, z = (
-                            source.data["x"][i],
-                            source.data["y"][i],
-                            source.data["z"][i])
-                    msg = "<p>Valid date: {}</p><p>Start date: {}</p><p>Offset: {}</p>".format(
-                            dt.datetime.fromtimestamp(x / 1000.),
-                            dt.datetime.fromtimestamp(z / 1000.),
-                          "T+{}".format(str(y)))
-                    div.text = msg
-            return wrapper
-        source.selected.on_change('indices', on_change(source, div))
-        sources.append(source)
+    second_source = bokeh.models.ColumnDataSource({
+        "x": [],
+        "y": [],
+        "z": []
+        })
+    renderer = figure.square(x="x", y="y", size=8,
+            source=second_source,
+            line_color="black",
+            fill_color="white")
+
+    def on_change(source, div, second_source):
+        def wrapper(attr, old, new):
+            if len(new) > 0:
+                i = new[0]
+                x, y, z = (
+                        source.data["x"][i],
+                        source.data["y"][i],
+                        source.data["z"][i])
+                msg = "<p>Valid date: {}</p><p>Start date: {}</p><p>Offset: {}</p>".format(
+                        dt.datetime.fromtimestamp(x / 1000.),
+                        dt.datetime.fromtimestamp(z / 1000.),
+                      "T+{}".format(str(y)))
+                div.text = msg
+
+                # Highlight glyphs to be iterated over
+                dimension = "forecast"
+                if dimension == "time":
+                    pts = np.where(np.array(source.data["x"]) == x)
+                elif dimension == "forecast":
+                    pts = np.where(np.array(source.data["y"]) == y)
+                elif dimension == "run":
+                    pts = np.where(np.array(source.data["z"]) == z)
+                x = [source.data["x"][k] for k in pts[0] if k != i]
+                y = [source.data["y"][k] for k in pts[0] if k != i]
+                z = [source.data["z"][k] for k in pts[0] if k != i]
+                second_source.data = {
+                        "x": x,
+                        "y": y,
+                        "z": z}
+            else:
+                second_source.data = {
+                        "x": [],
+                        "y": [],
+                        "z": []}
+        return wrapper
+    source.selected.on_change('indices', on_change(source, div, second_source))
 
     widgets = [div]
 
-    def plus(sources):
+    def plus(source):
         def wrapper():
-            for source in sources:
-                if len(source.selected.indices) > 0:
-                    i = source.selected.indices[0]
-                    source.selected.indices = [i + 1]
+            if len(source.selected.indices) > 0:
+                i = source.selected.indices[0]
+                source.selected.indices = [i + 1]
         return wrapper
 
-    def minus(sources):
+    def minus(source):
         def wrapper():
-            for source in sources:
-                if len(source.selected.indices) > 0:
-                    i = source.selected.indices[0]
-                    source.selected.indices = [i - 1]
+            if len(source.selected.indices) > 0:
+                i = source.selected.indices[0]
+                source.selected.indices = [i - 1]
         return wrapper
 
     plus_btn = bokeh.models.Button(label="+", width=50)
-    plus_btn.on_click(plus(sources))
+    plus_btn.on_click(plus(source))
     minus_btn = bokeh.models.Button(label="-", width=50)
-    minus_btn.on_click(minus(sources))
+    minus_btn.on_click(minus(source))
     btns = [plus_btn, minus_btn]
 
     div = bokeh.models.Div(text="Navigate:")
