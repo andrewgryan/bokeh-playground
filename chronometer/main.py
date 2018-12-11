@@ -108,30 +108,6 @@ def main():
                         dt.datetime.fromtimestamp(z / 1000.),
                       "T+{}".format(str(y)))
                 div.text = msg
-
-                # Highlight glyphs to be iterated over
-                dimension = "forecast"
-                if dimension == "time":
-                    pts = np.where(np.array(source.data["x"]) == x)
-                elif dimension == "forecast":
-                    pts = np.where(np.array(source.data["y"]) == y)
-                elif dimension == "run":
-                    pts = np.where(np.array(source.data["z"]) == z)
-                pts = pts[0].tolist()
-                x = [source.data["x"][k] for k in pts]
-                y = [source.data["y"][k] for k in pts]
-                z = [source.data["z"][k] for k in pts]
-                second_source.data = {
-                        "x": x,
-                        "y": y,
-                        "z": z}
-                second_source.selected.indices = [pts.index(i)]
-            else:
-                second_source.data = {
-                        "x": [],
-                        "y": [],
-                        "z": []}
-                second_source.selected.indices = []
         return wrapper
     source.selected.on_change('indices', on_change(source, div, second_source))
 
