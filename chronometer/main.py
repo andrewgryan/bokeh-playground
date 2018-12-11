@@ -148,32 +148,50 @@ def main():
         inline=True,
         width=210)
 
-    def valid_time(full_source):
-        def wrapper(index):
+    def valid_time(source):
+        if len(source.selected.indices) > 0:
+            i = source.selected.indices[0]
+            x = np.asarray(source.data["x"])
+            y = np.asarray(source.data["y"])
+            z = np.asarray(source.data["z"])
+            pts = np.where(x == x[i])
+            x = x[pts]
+            y = y[pts]
+            z = z[pts]
+            k = [pts[0].tolist().index(i)]
+            return {"x": x, "y": y, "z": z}, k
+        else:
             return {"x": [], "y": [], "z": []}, []
-        return wrapper
 
-    def lead_time(full_source):
-        def wrapper(index):
+    def lead_time(source):
+        if len(source.selected.indices) > 0:
+            i = source.selected.indices[0]
+            x = np.asarray(source.data["x"])
+            y = np.asarray(source.data["y"])
+            z = np.asarray(source.data["z"])
+            pts = np.where(y == y[i])
+            x = x[pts]
+            y = y[pts]
+            z = z[pts]
+            k = [pts[0].tolist().index(i)]
+            return {"x": x, "y": y, "z": z}, k
+        else:
             return {"x": [], "y": [], "z": []}, []
-        return wrapper
 
-    def run(full_source):
-        def wrapper(index):
-            if len(full_source.selected.indices) > 0:
-                i = full_source.selected.indices[0]
-                x = np.asarray(full_source.data["x"])
-                y = np.asarray(full_source.data["y"])
-                z = np.asarray(full_source.data["z"])
-                pts = np.where(z == z[i])
-                x = x[pts]
-                y = y[pts]
-                z = z[pts]
-                k = [pts[0].tolist().index(i)]
-                return {"x": x, "y": y, "z": z}, k
-            else:
-                return {"x": [], "y": [], "z": []}, []
-        return wrapper
+    def run(source):
+        if len(source.selected.indices) > 0:
+            i = source.selected.indices[0]
+            x = np.asarray(source.data["x"])
+            y = np.asarray(source.data["y"])
+            z = np.asarray(source.data["z"])
+            pts = np.where(z == z[i])
+            x = x[pts]
+            y = y[pts]
+            z = z[pts]
+            k = [pts[0].tolist().index(i)]
+            return {"x": x, "y": y, "z": z}, k
+        else:
+            return {"x": [], "y": [], "z": []}, []
 
     def update(source):
         def wrapper(event):
@@ -185,11 +203,14 @@ def main():
 
     stream = rx.Stream()
     rdo_grp.on_change("active", rx.callback(stream))
-    data_stream = rx.Merge(
-            stream.filter(lambda i: i == 0).map(valid_time(source)),
-            stream.filter(lambda i: i == 1).map(lead_time(source)),
-            stream.filter(lambda i: i == 2).map(run(source)))
-    data_stream.map(update(second_source)).log()
+    method_stream = rx.Merge(
+            stream.filter(lambda i: i == 0).map(lambda i: valid_time),
+            stream.filter(lambda i: i == 1).map(lambda i: lead_time),
+            stream.filter(lambda i: i == 2).map(lambda i: run))
+    data_stream = (method_stream
+            .map(lambda method: method(source))
+            .map(update(second_source))
+            .log())
 
     document.add_root(bokeh.layouts.widgetbox(*widgets))
     document.add_root(bokeh.layouts.layout([
