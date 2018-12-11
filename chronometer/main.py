@@ -3,6 +3,10 @@ import datetime as dt
 import bokeh.plotting
 import bokeh.models
 import bokeh.events
+import os
+import sys
+sys.path.insert(0, os.path.dirname(__file__))
+import rx
 
 
 def main():
@@ -143,14 +147,49 @@ def main():
         "Time", "Forecast", "Run"], active=2,
         inline=True,
         width=210)
-    def callback(attr, old, new):
-        if new == 0:
-            print('grouping by time')
-        elif new == 1:
-            print('grouping by lead time')
-        elif new == 2:
-            print('grouping by model run')
-    rdo_grp.on_change("active", callback)
+
+    def valid_time(full_source):
+        def wrapper(index):
+            return {"x": [], "y": [], "z": []}, []
+        return wrapper
+
+    def lead_time(full_source):
+        def wrapper(index):
+            return {"x": [], "y": [], "z": []}, []
+        return wrapper
+
+    def run(full_source):
+        def wrapper(index):
+            if len(full_source.selected.indices) > 0:
+                i = full_source.selected.indices[0]
+                x = np.asarray(full_source.data["x"])
+                y = np.asarray(full_source.data["y"])
+                z = np.asarray(full_source.data["z"])
+                pts = np.where(z == z[i])
+                x = x[pts]
+                y = y[pts]
+                z = z[pts]
+                k = [pts[0].tolist().index(i)]
+                return {"x": x, "y": y, "z": z}, k
+            else:
+                return {"x": [], "y": [], "z": []}, []
+        return wrapper
+
+    def update(source):
+        def wrapper(event):
+            data, indices = event
+            source.data = data
+            source.selected.indices = indices
+            return event
+        return wrapper
+
+    stream = rx.Stream()
+    rdo_grp.on_change("active", rx.callback(stream))
+    data_stream = rx.Merge(
+            stream.filter(lambda i: i == 0).map(valid_time(source)),
+            stream.filter(lambda i: i == 1).map(lead_time(source)),
+            stream.filter(lambda i: i == 2).map(run(source)))
+    data_stream.map(update(second_source)).log()
 
     document.add_root(bokeh.layouts.widgetbox(*widgets))
     document.add_root(bokeh.layouts.layout([
