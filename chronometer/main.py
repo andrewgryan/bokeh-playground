@@ -73,33 +73,6 @@ def main():
         zs.append(z)
     print("By model run", len(xs))
 
-    # Group by forecast time
-    xs = []
-    ys = []
-    zs = []
-    for hour in forecast_hours:
-        y = np.array(len(dates) * [hour])
-        x = dates + dt.timedelta(hours=float(hour))
-        z = dates
-        xs.append(x)
-        ys.append(y)
-        zs.append(z)
-    print("By forecast hour", len(xs))
-
-    # Group by valid date
-    xs = []
-    ys = []
-    zs = []
-    for valid_date, hours in all_hours.items():
-        y = np.array(hours)
-        x = np.array(len(hours) * [valid_date], dtype=object)
-        z = np.array([valid_date - dt.timedelta(hours=float(h))
-            for h in hours], dtype=object)
-        xs.append(x)
-        ys.append(y)
-        zs.append(z)
-    print("By valid time", len(xs))
-
     for x, y, z in zip(xs, ys, zs):
         source = bokeh.models.ColumnDataSource({
             "x": x,
