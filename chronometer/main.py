@@ -15,6 +15,15 @@ def main():
     ], dtype=object)
     forecast_hours = np.array([3 * i for i in range(12)])
 
+    all_hours = {}
+    for d in dates:
+        for h in forecast_hours:
+            v = d + dt.timedelta(hours=float(h))
+            if v in all_hours:
+                all_hours[v].append(float(h))
+            else:
+                all_hours[v] = [float(h)]
+
     document = bokeh.plotting.curdoc()
     hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -28,12 +37,14 @@ def main():
                 })
     pan_tool = bokeh.models.PanTool(dimensions="width")
     figure = bokeh.plotting.figure(x_axis_type='datetime',
-                                   plot_height=100,
+                                   plot_height=150,
                                    plot_width=600,
                                    tools=[
                                        "tap",
                                        hover_tool,
-                                       pan_tool],
+                                       pan_tool,
+                                       "xwheel_zoom"],
+                                   active_scroll="xwheel_zoom",
                                    toolbar_location=None)
     figure.toolbar.active_inspect = hover_tool
     figure.ygrid.grid_line_color = None
@@ -60,6 +71,7 @@ def main():
         xs.append(x)
         ys.append(y)
         zs.append(z)
+    print("By model run", len(xs))
 
     # Group by forecast time
     xs = []
@@ -72,6 +84,21 @@ def main():
         xs.append(x)
         ys.append(y)
         zs.append(z)
+    print("By forecast hour", len(xs))
+
+    # Group by valid date
+    xs = []
+    ys = []
+    zs = []
+    for valid_date, hours in all_hours.items():
+        y = np.array(hours)
+        x = np.array(len(hours) * [valid_date], dtype=object)
+        z = np.array([valid_date - dt.timedelta(hours=float(h))
+            for h in hours], dtype=object)
+        xs.append(x)
+        ys.append(y)
+        zs.append(z)
+    print("By valid time", len(xs))
 
     for x, y, z in zip(xs, ys, zs):
         source = bokeh.models.ColumnDataSource({
