@@ -15,15 +15,6 @@ def main():
     ], dtype=object)
     forecast_hours = np.array([3 * i for i in range(12)])
 
-    all_hours = {}
-    for d in dates:
-        for h in forecast_hours:
-            v = d + dt.timedelta(hours=float(h))
-            if v in all_hours:
-                all_hours[v].append(float(h))
-            else:
-                all_hours[v] = [float(h)]
-
     document = bokeh.plotting.curdoc()
     hover_tool = bokeh.models.HoverTool(
             tooltips=[
@@ -36,11 +27,12 @@ def main():
                 'z': 'datetime'
                 })
     pan_tool = bokeh.models.PanTool(dimensions="width")
+    tap_tool = bokeh.models.TapTool()
     figure = bokeh.plotting.figure(x_axis_type='datetime',
-                                   plot_height=150,
-                                   plot_width=600,
+                                   plot_height=200,
+                                   plot_width=330,
                                    tools=[
-                                       "tap",
+                                       tap_tool,
                                        hover_tool,
                                        pan_tool,
                                        "xwheel_zoom"],
@@ -57,9 +49,7 @@ def main():
 
     # Display all dates
     div = bokeh.models.Div()
-    sources = []
 
-    # Group by model run
     xs = []
     ys = []
     zs = []
@@ -72,7 +62,6 @@ def main():
         ys += y
         zs += z
     x, y, z = xs, ys, zs
-    print("All forecast/time data", len(x))
 
     source = bokeh.models.ColumnDataSource({
         "x": x,
@@ -84,10 +73,7 @@ def main():
             line_color=None,
             nonselection_alpha=1,
             nonselection_line_color=None)
-    renderer.selection_glyph = bokeh.models.Square(
-            fill_alpha=1,
-            fill_color="Red",
-            line_color="Black")
+    tap_tool.renderers = [renderer]
 
     second_source = bokeh.models.ColumnDataSource({
         "x": [],
@@ -95,9 +81,15 @@ def main():
         "z": []
         })
     renderer = figure.square(x="x", y="y", size=8,
-            source=second_source,
-            line_color="black",
-            fill_color="white")
+            source=second_source)
+    renderer.selection_glyph = bokeh.models.Square(
+            fill_alpha=1,
+            fill_color="Red",
+            line_color="Black")
+    renderer.nonselection_glyph = bokeh.models.Square(
+            fill_alpha=1,
+            fill_color="White",
+            line_color="Black")
 
     def on_change(source, div, second_source):
         def wrapper(attr, old, new):
@@ -121,46 +113,36 @@ def main():
                     pts = np.where(np.array(source.data["y"]) == y)
                 elif dimension == "run":
                     pts = np.where(np.array(source.data["z"]) == z)
-                x = [source.data["x"][k] for k in pts[0] if k != i]
-                y = [source.data["y"][k] for k in pts[0] if k != i]
-                z = [source.data["z"][k] for k in pts[0] if k != i]
+                pts = pts[0].tolist()
+                x = [source.data["x"][k] for k in pts]
+                y = [source.data["y"][k] for k in pts]
+                z = [source.data["z"][k] for k in pts]
                 second_source.data = {
                         "x": x,
                         "y": y,
                         "z": z}
+                second_source.selected.indices = [pts.index(i)]
             else:
                 second_source.data = {
                         "x": [],
                         "y": [],
                         "z": []}
+                second_source.selected.indices = []
         return wrapper
     source.selected.on_change('indices', on_change(source, div, second_source))
 
     widgets = [div]
 
-    def plus(source):
-        def wrapper():
-            if len(source.selected.indices) > 0:
-                i = source.selected.indices[0]
-                source.selected.indices = [i + 1]
-        return wrapper
-
-    def minus(source):
-        def wrapper():
-            if len(source.selected.indices) > 0:
-                i = source.selected.indices[0]
-                source.selected.indices = [i - 1]
-        return wrapper
-
     plus_btn = bokeh.models.Button(label="+", width=50)
-    plus_btn.on_click(plus(source))
+    plus_btn.on_click(plus(second_source))
     minus_btn = bokeh.models.Button(label="-", width=50)
-    minus_btn.on_click(minus(source))
+    minus_btn.on_click(minus(second_source))
     btns = [plus_btn, minus_btn]
 
-    div = bokeh.models.Div(text="Navigate:")
     rdo_grp = bokeh.models.RadioGroup(labels=[
-        "Time", "Forecast", "Run"], active=2, inline=True)
+        "Time", "Forecast", "Run"], active=2,
+        inline=True,
+        width=210)
     def callback(attr, old, new):
         if new == 0:
             print('grouping by time')
@@ -171,8 +153,27 @@ def main():
     rdo_grp.on_change("active", callback)
 
     document.add_root(bokeh.layouts.widgetbox(*widgets))
-    document.add_root(bokeh.layouts.row(div, rdo_grp, plus_btn, minus_btn, width=100))
-    document.add_root(figure)
+    document.add_root(bokeh.layouts.layout([
+        [rdo_grp, plus_btn, minus_btn],
+        [figure]]))
+
+
+def plus(source):
+    def wrapper():
+        if len(source.selected.indices) > 0:
+            i = source.selected.indices[0]
+            n = len(source.data["x"])
+            source.selected.indices = [(i + 1) % n]
+    return wrapper
+
+
+def minus(source):
+    def wrapper():
+        if len(source.selected.indices) > 0:
+            i = source.selected.indices[0]
+            n = len(source.data["x"])
+            source.selected.indices = [(i - 1) % n]
+    return wrapper
 
 
 if __name__.startswith('bk'):
