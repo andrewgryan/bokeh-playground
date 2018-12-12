@@ -119,7 +119,6 @@ def main():
 
     selected = rx.Stream()
     source.selected.on_change('indices', rx.callback(selected))
-    selected.map(model(source)).map(view(div))
 
     widgets = [div]
 
@@ -166,7 +165,9 @@ def main():
     minus = minus.map(-1)
 
     steps = rx.Merge(plus, minus)
-    steps.map(move(second_source))
+    rx.Merge(
+            steps.map(move(second_source)).map(model(second_source)),
+            selected.map(model(source))).map(view(div))
 
     rdo_grp.active = 1
     source.selected.indices = [0]
@@ -183,6 +184,7 @@ def move(source):
             i = source.selected.indices[0]
             n = len(source.data["x"])
             source.selected.indices = [(i + steps) % n]
+        return source.selected.indices
     return wrapper
 
 
