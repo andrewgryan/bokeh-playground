@@ -170,3 +170,19 @@ class CombineLatest(Stream):
 
 def combine_latest(*streams):
     return CombineLatest(*streams)
+
+
+def scan_reset(stream, accumulator, reset):
+    """Accumulate values with a stream to reset the seed"""
+    return reset.flat_map_latest(lambda seed: stream.scan(seed, accumulator))
+
+
+def scan_reset_emit_seed(stream, accumulator, reset, identity=0):
+    """Same as scan_reset but with an identity emit on seed change
+
+    .. note:: This method is needed to properly time order
+              flat_map with scan operations
+    """
+    def method(seed):
+        return Merge(stream, reset.map(identity)).scan(seed, accumulator)
+    return reset.flat_map_latest(method)
