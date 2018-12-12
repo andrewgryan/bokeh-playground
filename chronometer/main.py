@@ -165,9 +165,8 @@ def main():
     minus = minus.map(-1)
 
     steps = rx.Merge(plus, minus)
-    rx.Merge(
-            steps.map(move(second_source)).map(model(second_source)),
-            selected.map(model(source))).map(view(div))
+    steps.map(move(second_source)).map(sync(source, second_source))
+    selected.map(model(source)).map(view(div))
 
     rdo_grp.active = 1
     source.selected.indices = [0]
@@ -177,6 +176,20 @@ def main():
         [rdo_grp, plus_btn, minus_btn],
         [figure]]))
 
+
+def sync(large, small):
+    def wrapper(event):
+        li = large.selected.indices[0]
+        si = small.selected.indices[0]
+        lx = np.asarray(large.data["x"][:])
+        ly = np.asarray(large.data["y"][:])
+        sx = np.asarray(small.data["x"][:])
+        sy = np.asarray(small.data["y"][:])
+        if ((lx[li] == sx[si]) and (ly[li] == sy[si])):
+            return
+        pts = np.where((lx == sx[si]) & (ly == sy[si]))
+        large.selected.indices = pts[0].tolist()
+    return wrapper
 
 def move(source):
     def wrapper(steps):
