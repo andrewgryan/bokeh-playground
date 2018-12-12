@@ -95,7 +95,7 @@ def main():
             fill_color="White",
             line_color="Black")
 
-    def on_change(source, div, second_source):
+    def on_change(source, div):
         def wrapper(attr, old, new):
             if len(new) > 0:
                 i = new[0]
@@ -109,7 +109,11 @@ def main():
                       "T+{}".format(str(y)))
                 div.text = msg
         return wrapper
-    source.selected.on_change('indices', on_change(source, div, second_source))
+    source.selected.on_change('indices', on_change(source, div))
+
+    selected = rx.Stream()
+    source.selected.on_change('indices', rx.callback(selected))
+    selected.log()
 
     widgets = [div]
 
@@ -187,6 +191,9 @@ def main():
             .map(lambda method: method(source))
             .map(update(second_source))
             .log())
+    rx.combine_latest(
+            method_stream,
+            selected).log()
 
     document.add_root(bokeh.layouts.widgetbox(*widgets))
     document.add_root(bokeh.layouts.layout([

@@ -1,3 +1,4 @@
+from functools import partial
 
 
 def callback(stream):
@@ -99,3 +100,20 @@ class Log(Stream):
     def notify(self, value):
         print(value)
         self.emit(value)
+
+
+class CombineLatest(Stream):
+    def __init__(self, *streams):
+        self.streams = streams
+        self.state = [None for _ in streams]
+        for i, stream in enumerate(streams):
+            stream.subscribe(partial(self.notify, i))
+        super().__init__()
+
+    def notify(self, index, value):
+        self.state[index] = value
+        self.emit(tuple(self.state))
+
+
+def combine_latest(*streams):
+    return CombineLatest(*streams)
