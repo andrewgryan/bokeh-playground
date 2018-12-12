@@ -95,28 +95,64 @@ def main():
             fill_color="White",
             line_color="Black")
 
-    def on_change(source, div):
-        def wrapper(attr, old, new):
-            if len(new) > 0:
-                i = new[0]
-                x, y, z = (
-                        source.data["x"][i],
-                        source.data["y"][i],
-                        source.data["z"][i])
-                if not isinstance(x, dt.datetime):
-                    x = dt.datetime.fromtimestamp(x / 1000.)
-                if not isinstance(z, dt.datetime):
-                    z = dt.datetime.fromtimestamp(z / 1000.)
-                template = "<p>Valid date: {}</br>Start date: {}</br>Offset: {}</p>"
-                msg = template.format(x, z, "T+{}".format(str(y)))
-                div.text = msg
+    def model(source):
+        def wrapper(new):
+            i = new[0]
+            x, y, z = (
+                    source.data["x"][i],
+                    source.data["y"][i],
+                    source.data["z"][i])
+            if not isinstance(x, dt.datetime):
+                x = dt.datetime.fromtimestamp(x / 1000.)
+            if not isinstance(z, dt.datetime):
+                z = dt.datetime.fromtimestamp(z / 1000.)
+            return x, y, z
         return wrapper
-    source.selected.on_change('indices', on_change(source, div))
+
+    def view(div):
+        def wrapper(state):
+            x, y, z = state
+            template = "<p>Valid date: {}</br>Start date: {}</br>Offset: {}</p>"
+            msg = template.format(x, z, "T+{}".format(str(y)))
+            div.text = msg
+        return wrapper
 
     selected = rx.Stream()
     source.selected.on_change('indices', rx.callback(selected))
+    selected.map(model(source)).map(view(div))
 
     widgets = [div]
+
+    rdo_grp = bokeh.models.RadioGroup(labels=[
+        "Time", "Forecast", "Run"],
+        inline=True,
+        width=210)
+
+    def all_not_none(items):
+        return all(item is not None for item in items)
+
+    stream = rx.Stream()
+    rdo_grp.on_change("active", rx.callback(stream))
+    method_stream = rx.Merge(
+            stream.filter(lambda i: i == 0).map(lambda i: valid_time),
+            stream.filter(lambda i: i == 1).map(lambda i: lead_time),
+            stream.filter(lambda i: i == 2).map(lambda i: run))
+    states = rx.combine_latest(
+            method_stream,
+            selected).filter(all_not_none)
+
+    def render(full_source, small_source):
+        def wrapper(event):
+            method, _ = event
+            data, indices = method(full_source)
+            small_source.data = data
+            small_source.selected.indices = indices
+        return wrapper
+    states.map(render(source, second_source))
+
+    second_selected = rx.Stream()
+    second_source.selected.on_change('indices', rx.callback(second_selected))
+    second_selected.log()
 
     plus_btn = bokeh.models.Button(label="+", width=50)
     minus_btn = bokeh.models.Button(label="-", width=50)
@@ -129,41 +165,8 @@ def main():
     minus_btn.on_click(rx.click(minus))
     minus = minus.map(-1)
 
-    steps = rx.Merge(plus, minus).log()
-
-    seeds = selected.filter(lambda i: len(i) > 0).map(lambda i: i[0])
-    index = rx.scan(steps, seeds, lambda a, i: a + i)
-    index.log()
-
-    rdo_grp = bokeh.models.RadioGroup(labels=[
-        "Time", "Forecast", "Run"],
-        inline=True,
-        width=210)
-
-    def update(source):
-        def wrapper(event):
-            data, indices = event
-            source.data = data
-            source.selected.indices = indices
-            return event
-        return wrapper
-
-    def all_not_none(items):
-        return all(item is not None for item in items)
-
-    stream = rx.Stream()
-    rdo_grp.on_change("active", rx.callback(stream))
-    method_stream = rx.Merge(
-            stream.filter(lambda i: i == 0).map(lambda i: valid_time),
-            stream.filter(lambda i: i == 1).map(lambda i: lead_time),
-            stream.filter(lambda i: i == 2).map(lambda i: run))
-    data_stream = (method_stream
-            .map(lambda method: method(source))
-            .map(update(second_source))
-            .log())
-    states = rx.combine_latest(
-            method_stream,
-            selected).filter(all_not_none).log()
+    steps = rx.Merge(plus, minus)
+    steps.map(move(second_source))
 
     rdo_grp.active = 1
     source.selected.indices = [0]
@@ -174,21 +177,12 @@ def main():
         [figure]]))
 
 
-def plus(source):
-    def wrapper():
+def move(source):
+    def wrapper(steps):
         if len(source.selected.indices) > 0:
             i = source.selected.indices[0]
             n = len(source.data["x"])
-            source.selected.indices = [(i + 1) % n]
-    return wrapper
-
-
-def minus(source):
-    def wrapper():
-        if len(source.selected.indices) > 0:
-            i = source.selected.indices[0]
-            n = len(source.data["x"])
-            source.selected.indices = [(i - 1) % n]
+            source.selected.indices = [(i + steps) % n]
     return wrapper
 
 
