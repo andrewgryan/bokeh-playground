@@ -183,6 +183,10 @@ def scan_reset_emit_seed(stream, accumulator, reset, identity=0):
     .. note:: This method is needed to properly time order
               flat_map with scan operations
     """
+    return scan(stream, reset, accumulator, identity=identity)
+
+
+def scan(stream, seeds, accumulator, identity=0):
     def method(seed):
-        return Merge(stream, reset.map(identity)).scan(seed, accumulator)
-    return reset.flat_map_latest(method)
+        return Merge(stream, seeds.map(identity)).scan(seed, accumulator)
+    return seeds.flat_map_latest(method)

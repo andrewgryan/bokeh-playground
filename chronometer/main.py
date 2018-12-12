@@ -131,6 +131,10 @@ def main():
 
     steps = rx.Merge(plus, minus).log()
 
+    seeds = selected.filter(lambda i: len(i) > 0).map(lambda i: i[0])
+    index = rx.scan(steps, seeds, lambda a, i: a + i)
+    index.log()
+
     rdo_grp = bokeh.models.RadioGroup(labels=[
         "Time", "Forecast", "Run"],
         inline=True,
