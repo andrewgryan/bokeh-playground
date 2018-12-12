@@ -17,6 +17,9 @@ def main():
         dt.datetime(2018, 12, 5, 12),
         dt.datetime(2018, 12, 6, 0),
     ], dtype=object)
+    dates = np.array([
+        dt.datetime(2018, 11, 30) + i * dt.timedelta(hours=12)
+        for i in range(100)], dtype=object)
     forecast_hours = np.array([3 * i for i in range(12)])
 
     # Display all dates
