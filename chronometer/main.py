@@ -103,75 +103,38 @@ def main():
                         source.data["x"][i],
                         source.data["y"][i],
                         source.data["z"][i])
-                msg = "<p>Valid date: {}</p><p>Start date: {}</p><p>Offset: {}</p>".format(
-                        dt.datetime.fromtimestamp(x / 1000.),
-                        dt.datetime.fromtimestamp(z / 1000.),
-                      "T+{}".format(str(y)))
+                if not isinstance(x, dt.datetime):
+                    x = dt.datetime.fromtimestamp(x / 1000.)
+                if not isinstance(z, dt.datetime):
+                    z = dt.datetime.fromtimestamp(z / 1000.)
+                template = "<p>Valid date: {}</br>Start date: {}</br>Offset: {}</p>"
+                msg = template.format(x, z, "T+{}".format(str(y)))
                 div.text = msg
         return wrapper
     source.selected.on_change('indices', on_change(source, div))
 
     selected = rx.Stream()
     source.selected.on_change('indices', rx.callback(selected))
-    selected.log()
 
     widgets = [div]
 
     plus_btn = bokeh.models.Button(label="+", width=50)
-    plus_btn.on_click(plus(second_source))
     minus_btn = bokeh.models.Button(label="-", width=50)
-    minus_btn.on_click(minus(second_source))
-    btns = [plus_btn, minus_btn]
+
+    plus = rx.Stream()
+    plus_btn.on_click(rx.click(plus))
+    plus = plus.map(+1)
+
+    minus = rx.Stream()
+    minus_btn.on_click(rx.click(minus))
+    minus = minus.map(-1)
+
+    steps = rx.Merge(plus, minus).log()
 
     rdo_grp = bokeh.models.RadioGroup(labels=[
-        "Time", "Forecast", "Run"], active=2,
+        "Time", "Forecast", "Run"],
         inline=True,
         width=210)
-
-    def valid_time(source):
-        if len(source.selected.indices) > 0:
-            i = source.selected.indices[0]
-            x = np.asarray(source.data["x"])
-            y = np.asarray(source.data["y"])
-            z = np.asarray(source.data["z"])
-            pts = np.where(x == x[i])
-            x = x[pts]
-            y = y[pts]
-            z = z[pts]
-            k = [pts[0].tolist().index(i)]
-            return {"x": x, "y": y, "z": z}, k
-        else:
-            return {"x": [], "y": [], "z": []}, []
-
-    def lead_time(source):
-        if len(source.selected.indices) > 0:
-            i = source.selected.indices[0]
-            x = np.asarray(source.data["x"])
-            y = np.asarray(source.data["y"])
-            z = np.asarray(source.data["z"])
-            pts = np.where(y == y[i])
-            x = x[pts]
-            y = y[pts]
-            z = z[pts]
-            k = [pts[0].tolist().index(i)]
-            return {"x": x, "y": y, "z": z}, k
-        else:
-            return {"x": [], "y": [], "z": []}, []
-
-    def run(source):
-        if len(source.selected.indices) > 0:
-            i = source.selected.indices[0]
-            x = np.asarray(source.data["x"])
-            y = np.asarray(source.data["y"])
-            z = np.asarray(source.data["z"])
-            pts = np.where(z == z[i])
-            x = x[pts]
-            y = y[pts]
-            z = z[pts]
-            k = [pts[0].tolist().index(i)]
-            return {"x": x, "y": y, "z": z}, k
-        else:
-            return {"x": [], "y": [], "z": []}, []
 
     def update(source):
         def wrapper(event):
@@ -180,6 +143,9 @@ def main():
             source.selected.indices = indices
             return event
         return wrapper
+
+    def all_not_none(items):
+        return all(item is not None for item in items)
 
     stream = rx.Stream()
     rdo_grp.on_change("active", rx.callback(stream))
@@ -191,9 +157,12 @@ def main():
             .map(lambda method: method(source))
             .map(update(second_source))
             .log())
-    rx.combine_latest(
+    states = rx.combine_latest(
             method_stream,
-            selected).log()
+            selected).filter(all_not_none).log()
+
+    rdo_grp.active = 1
+    source.selected.indices = [0]
 
     document.add_root(bokeh.layouts.widgetbox(*widgets))
     document.add_root(bokeh.layouts.layout([
@@ -217,6 +186,54 @@ def minus(source):
             n = len(source.data["x"])
             source.selected.indices = [(i - 1) % n]
     return wrapper
+
+
+def valid_time(source):
+    if len(source.selected.indices) > 0:
+        i = source.selected.indices[0]
+        x = np.asarray(source.data["x"])
+        y = np.asarray(source.data["y"])
+        z = np.asarray(source.data["z"])
+        pts = np.where(x == x[i])
+        x = x[pts]
+        y = y[pts]
+        z = z[pts]
+        k = [pts[0].tolist().index(i)]
+        return {"x": x, "y": y, "z": z}, k
+    else:
+        return {"x": [], "y": [], "z": []}, []
+
+
+def lead_time(source):
+    if len(source.selected.indices) > 0:
+        i = source.selected.indices[0]
+        x = np.asarray(source.data["x"])
+        y = np.asarray(source.data["y"])
+        z = np.asarray(source.data["z"])
+        pts = np.where(y == y[i])
+        x = x[pts]
+        y = y[pts]
+        z = z[pts]
+        k = [pts[0].tolist().index(i)]
+        return {"x": x, "y": y, "z": z}, k
+    else:
+        return {"x": [], "y": [], "z": []}, []
+
+
+def run(source):
+    if len(source.selected.indices) > 0:
+        i = source.selected.indices[0]
+        x = np.asarray(source.data["x"])
+        y = np.asarray(source.data["y"])
+        z = np.asarray(source.data["z"])
+        pts = np.where(z == z[i])
+        x = x[pts]
+        y = y[pts]
+        z = z[pts]
+        k = [pts[0].tolist().index(i)]
+        return {"x": x, "y": y, "z": z}, k
+    else:
+        return {"x": [], "y": [], "z": []}, []
 
 
 if __name__.startswith('bk'):

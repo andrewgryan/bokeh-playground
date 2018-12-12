@@ -5,19 +5,13 @@ import main
 import rx
 
 
-def click(stream):
-    def wrapper():
-        stream.emit()
-    return wrapper
-
-
 class TestMain(unittest.TestCase):
     def test_main(self):
         main.main()
 
     def test_click_stream(self):
         stream = unittest.mock.Mock()
-        callback = click(stream)
+        callback = rx.click(stream)
         callback()
         stream.emit.assert_called_once_with()
 
