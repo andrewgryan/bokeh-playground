@@ -19,7 +19,39 @@ def main():
     ], dtype=object)
     forecast_hours = np.array([3 * i for i in range(12)])
 
+    # Display all dates
+    div = bokeh.models.Div()
+    xs = []
+    ys = []
+    zs = []
+    for date in dates:
+        y = forecast_hours.tolist()
+        x = [date + dt.timedelta(hours=float(h))
+            for h in forecast_hours]
+        z = len(forecast_hours) * [date]
+        xs += x
+        ys += y
+        zs += z
+    x, y, z = xs, ys, zs
+
     document = bokeh.plotting.curdoc()
+
+    layout, stream = chronometer(x, y, z)
+
+    def view(div):
+        def wrapper(state):
+            x, y, z = state
+            template = "<p>Valid date: {}</br>Start date: {}</br>Offset: {}</p>"
+            msg = template.format(x, z, "T+{}".format(str(y)))
+            div.text = msg
+        return wrapper
+    stream.map(view(div))
+
+    document.add_root(bokeh.layouts.widgetbox(div))
+    document.add_root(layout)
+
+
+def chronometer(x, y, z):
     hover_tool = bokeh.models.HoverTool(
             tooltips=[
                 ('valid', '@x{%F %T}'),
@@ -46,26 +78,10 @@ def main():
     figure.ygrid.grid_line_color = None
 
     figure.xaxis.axis_label = "Validity time"
-    figure.xaxis.axis_label_text_font_size = "8px"
+    figure.xaxis.axis_label_text_font_size = "10px"
     figure.yaxis.axis_label = "Forecast length"
-    figure.yaxis.axis_label_text_font_size = "8px"
+    figure.yaxis.axis_label_text_font_size = "10px"
     figure.yaxis.ticker = [0, 12, 24, 48]
-
-    # Display all dates
-    div = bokeh.models.Div()
-
-    xs = []
-    ys = []
-    zs = []
-    for date in dates:
-        y = forecast_hours.tolist()
-        x = [date + dt.timedelta(hours=float(h))
-            for h in forecast_hours]
-        z = len(forecast_hours) * [date]
-        xs += x
-        ys += y
-        zs += z
-    x, y, z = xs, ys, zs
 
     source = bokeh.models.ColumnDataSource({
         "x": x,
@@ -109,18 +125,8 @@ def main():
             return x, y, z
         return wrapper
 
-    def view(div):
-        def wrapper(state):
-            x, y, z = state
-            template = "<p>Valid date: {}</br>Start date: {}</br>Offset: {}</p>"
-            msg = template.format(x, z, "T+{}".format(str(y)))
-            div.text = msg
-        return wrapper
-
     selected = rx.Stream()
     source.selected.on_change('indices', rx.callback(selected))
-
-    widgets = [div]
 
     rdo_grp = bokeh.models.RadioGroup(labels=[
         "Time", "Forecast", "Run"],
@@ -166,15 +172,13 @@ def main():
 
     steps = rx.Merge(plus, minus)
     steps.map(move(second_source)).map(sync(source, second_source))
-    selected.map(model(source)).map(view(div))
+    chronometer_stream = selected.map(model(source))
 
     rdo_grp.active = 1
     source.selected.indices = [0]
-
-    document.add_root(bokeh.layouts.widgetbox(*widgets))
-    document.add_root(bokeh.layouts.layout([
+    return bokeh.layouts.layout([
         [rdo_grp, plus_btn, minus_btn],
-        [figure]]))
+        [figure]]), chronometer_stream
 
 
 def sync(large, small):
