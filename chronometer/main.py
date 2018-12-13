@@ -20,7 +20,7 @@ def main():
     dates = np.array([
         dt.datetime(2018, 11, 30) + i * dt.timedelta(hours=12)
         for i in range(100)], dtype=object)
-    forecast_hours = np.array([3 * i for i in range(12)])
+    forecast_hours = np.array([6 * i for i in range(12)])
 
     # Display all dates
     div = bokeh.models.Div()
@@ -54,7 +54,16 @@ def main():
     document.add_root(layout)
 
 
-def chronometer(x, y, z):
+def chronometer(valid_dates, offsets, start_dates):
+    """Time/forecast exploration widget
+
+    Creates a figure with glyphs for each point in
+    time/forecast space along with buttons and a radio
+    group to navigate
+
+    :param valid_dates: datetimes representing validity
+    :param start_dates: datetimes representing run start
+    """
     hover_tool = bokeh.models.HoverTool(
             tooltips=[
                 ('valid', '@x{%F %T}'),
@@ -84,12 +93,12 @@ def chronometer(x, y, z):
     figure.xaxis.axis_label_text_font_size = "10px"
     figure.yaxis.axis_label = "Forecast length"
     figure.yaxis.axis_label_text_font_size = "10px"
-    figure.yaxis.ticker = [0, 12, 24, 48]
+    figure.yaxis.ticker = ticks(offsets)
 
     source = bokeh.models.ColumnDataSource({
-        "x": x,
-        "y": y,
-        "z": z
+        "x": valid_dates,
+        "y": offsets,
+        "z": start_dates
         })
     renderer = figure.square(x="x", y="y", size=8,
             source=source,
@@ -182,6 +191,22 @@ def chronometer(x, y, z):
     return bokeh.layouts.layout([
         [rdo_grp, plus_btn, minus_btn],
         [figure]]), chronometer_stream
+
+
+def ticks(hours):
+    """Choose appropriate tick locations for forecasts"""
+    if len(hours) == 0:
+        return []
+    end = max(hours)
+    step_size = 3
+    while end >= (4 * step_size):
+        step_size *= 2
+    hour = 0
+    ticks = []
+    while (hour <= end):
+        ticks.append(hour)
+        hour += step_size
+    return ticks
 
 
 def sync(large, small):
