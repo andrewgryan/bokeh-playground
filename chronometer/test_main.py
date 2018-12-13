@@ -38,6 +38,14 @@ class TestMain(unittest.TestCase):
             unittest.mock.call(2)])
 
 
+class TestChronometer(unittest.TestCase):
+    def test_chronometer_given_no_dates(self):
+        valid_dates = []
+        offsets = []
+        start_dates = []
+        main.chronometer(valid_dates, offsets, start_dates)
+
+
 class TestTicker(unittest.TestCase):
     def test_ticks_given_max_zero(self):
         self.check(0, [0])

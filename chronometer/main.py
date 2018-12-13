@@ -93,7 +93,8 @@ def chronometer(valid_dates, offsets, start_dates):
     figure.xaxis.axis_label_text_font_size = "10px"
     figure.yaxis.axis_label = "Forecast length"
     figure.yaxis.axis_label_text_font_size = "10px"
-    figure.yaxis.ticker = ticks(max(offsets))
+    if len(offsets) > 0:
+        figure.yaxis.ticker = ticks(max(offsets))
 
     source = bokeh.models.ColumnDataSource({
         "x": valid_dates,
@@ -187,7 +188,8 @@ def chronometer(valid_dates, offsets, start_dates):
     chronometer_stream = selected.map(model(source))
 
     rdo_grp.active = 1
-    source.selected.indices = [0]
+    if len(valid_dates) > 0:
+        source.selected.indices = [0]
     return bokeh.layouts.layout([
         [rdo_grp, plus_btn, minus_btn],
         [figure]]), chronometer_stream
