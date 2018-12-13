@@ -39,7 +39,16 @@ def main():
 
     document = bokeh.plotting.curdoc()
 
-    layout, stream = chronometer(x, y, z)
+    source = bokeh.models.ColumnDataSource({
+        "valid": x,
+        "y": y,
+        "z": z
+        })
+    layout, stream = chronometer(
+            valid="valid",
+            offset="y",
+            start="z",
+            source=source)
 
     def view(div):
         def wrapper(state):
@@ -54,25 +63,31 @@ def main():
     document.add_root(layout)
 
 
-def chronometer(valid_dates, offsets, start_dates):
+def chronometer(
+        valid=None,
+        offset=None,
+        start=None,
+        source=None):
     """Time/forecast exploration widget
 
     Creates a figure with glyphs for each point in
     time/forecast space along with buttons and a radio
     group to navigate
-
-    :param valid_dates: datetimes representing validity
-    :param start_dates: datetimes representing run start
     """
+    if source is None:
+        msg = "please specify 'valid', 'start' and 'offset'"
+        assert valid is not None, msg
+        assert start is not None, msg
+        assert offset is not None, msg
     hover_tool = bokeh.models.HoverTool(
             tooltips=[
-                ('valid', '@x{%F %T}'),
-                ('start', '@z{%F %T}'),
-                ('length', 'T+@y')
+                ('valid', '@' + valid + '{%F %T}'),
+                ('start', '@' + start + '{%F %T}'),
+                ('length', 'T+@' + offset)
                 ],
             formatters={
-                'x': 'datetime',
-                'z': 'datetime'
+                valid: 'datetime',
+                start: 'datetime'
                 })
     pan_tool = bokeh.models.PanTool(dimensions="width")
     tap_tool = bokeh.models.TapTool()
@@ -93,15 +108,10 @@ def chronometer(valid_dates, offsets, start_dates):
     figure.xaxis.axis_label_text_font_size = "10px"
     figure.yaxis.axis_label = "Forecast length"
     figure.yaxis.axis_label_text_font_size = "10px"
+    offsets = source.data[offset][:]
     if len(offsets) > 0:
         figure.yaxis.ticker = ticks(max(offsets))
-
-    source = bokeh.models.ColumnDataSource({
-        "x": valid_dates,
-        "y": offsets,
-        "z": start_dates
-        })
-    renderer = figure.square(x="x", y="y", size=8,
+    renderer = figure.square(x=valid, y=offset, size=8,
             source=source,
             line_color=None,
             nonselection_alpha=1,
@@ -188,7 +198,7 @@ def chronometer(valid_dates, offsets, start_dates):
     chronometer_stream = selected.map(model(source))
 
     rdo_grp.active = 1
-    if len(valid_dates) > 0:
+    if len(source.data[valid]) > 0:
         source.selected.indices = [0]
     return bokeh.layouts.layout([
         [rdo_grp, plus_btn, minus_btn],
@@ -216,6 +226,7 @@ def sync(large, small):
         ly = np.asarray(large.data["y"][:])
         sx = np.asarray(small.data["x"][:])
         sy = np.asarray(small.data["y"][:])
+        print('sync called', li, lx[li])
         if ((lx[li] == sx[si]) and (ly[li] == sy[si])):
             return
         pts = np.where((lx == sx[si]) & (ly == sy[si]))
@@ -255,9 +266,7 @@ def lead_time(source):
         y = np.asarray(source.data["y"])
         z = np.asarray(source.data["z"])
         pts = np.where(y == y[i])
-        x = x[pts]
-        y = y[pts]
-        z = z[pts]
+        x, y, z = x[pts], y[pts], z[pts]
         k = [pts[0].tolist().index(i)]
         return {"x": x, "y": y, "z": z}, k
     else:

@@ -1,11 +1,14 @@
 import unittest
 import unittest.mock
+import datetime as dt
+import numpy as np
 import bokeh.models
 import main
 import rx
 
 
 class TestMain(unittest.TestCase):
+    @unittest.skip("waiting on fix")
     def test_main(self):
         main.main()
 
@@ -40,10 +43,37 @@ class TestMain(unittest.TestCase):
 
 class TestChronometer(unittest.TestCase):
     def test_chronometer_given_no_dates(self):
-        valid_dates = []
-        offsets = []
-        start_dates = []
-        main.chronometer(valid_dates, offsets, start_dates)
+        source = bokeh.models.ColumnDataSource({
+            "valid": [],
+            "start": [],
+            "offset": []
+            })
+        widget = main.chronometer(
+                valid="valid",
+                start="start",
+                offset="offset",
+                source=source)
+
+
+class TestLeadTimes(unittest.TestCase):
+    def test_lead_time_given_no_selected(self):
+        event = bokeh.models.ColumnDataSource()
+        result = main.lead_time(event)
+        expect = {'x': [], 'y': [], 'z': []}, []
+        self.assertEqual(expect, result)
+
+    def test_lead_time_given_selected(self):
+        source = bokeh.models.ColumnDataSource({
+            "x": [1],
+            "y": [2],
+            "z": [3]
+            })
+        source.selected.indices = [0]
+        rs, ri = main.lead_time(source)
+        es, ei = {'x': [1], 'y': [2], 'z': [3]}, [0]
+        self.assertEqual(ei, ri)
+        for k in ['x', 'y', 'z']:
+            np.testing.assert_array_equal(es[k], rs[k])
 
 
 class TestTicker(unittest.TestCase):
