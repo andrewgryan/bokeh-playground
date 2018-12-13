@@ -202,7 +202,10 @@ def chronometer(
     minus = minus.map(-1)
 
     steps = rx.Merge(plus, minus)
-    steps.map(move(second_source)).map(sync(source, second_source))
+    steps.map(move(second_source)).map(sync(
+        source,
+        second_source,
+        valid=valid))
 
     rdo_grp.active = 1
     if len(source.data[valid]) > 0:
@@ -225,11 +228,11 @@ def ticks(max_hour):
     return ticks
 
 
-def sync(large, small):
+def sync(large, small, valid="x"):
     def wrapper(event):
         li = large.selected.indices[0]
         si = small.selected.indices[0]
-        lx = np.asarray(large.data["x"][:])
+        lx = np.asarray(large.data[valid][:])
         ly = np.asarray(large.data["y"][:])
         sx = np.asarray(small.data["x"][:])
         sy = np.asarray(small.data["y"][:])
