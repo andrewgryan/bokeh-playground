@@ -10,18 +10,11 @@ from functools import partial
 import rx
 
 
-def main():
-    dates = np.array([
-        dt.datetime(2018, 11, 30),
-        dt.datetime(2018, 11, 30, 12),
-        dt.datetime(2018, 12, 3, 12),
-        dt.datetime(2018, 12, 5, 12),
-        dt.datetime(2018, 12, 6, 0),
-    ], dtype=object)
+def main(plus_button=None):
     dates = np.array([
         dt.datetime(2018, 11, 30) + i * dt.timedelta(hours=12)
         for i in range(100)], dtype=object)
-    forecast_hours = np.array([6 * i for i in range(12)])
+    forecast_hours = np.array([3 * i for i in range(24)])
 
     # Display all dates
     div = bokeh.models.Div()
@@ -42,14 +35,15 @@ def main():
 
     source = bokeh.models.ColumnDataSource({
         "valid": x,
-        "y": y,
+        "offset": y,
         "z": z
         })
     layout = chronometer(
             valid="valid",
-            offset="y",
+            offset="offset",
             start="z",
-            source=source)
+            source=source,
+            plus_button=plus_button)
 
     def view(div):
         def wrapper(state):
@@ -59,12 +53,14 @@ def main():
             div.text = msg
         return wrapper
 
-    def model(source, valid="x"):
+    def model(source,
+            valid="x",
+            offset="y"):
         def wrapper(new):
             i = new[0]
             x, y, z = (
                     source.data[valid][i],
-                    source.data["y"][i],
+                    source.data[offset][i],
                     source.data["z"][i])
             if not isinstance(x, dt.datetime):
                 x = dt.datetime.fromtimestamp(x / 1000.)
@@ -75,7 +71,10 @@ def main():
 
     stream = rx.Stream()
     source.selected.on_change('indices', rx.callback(stream))
-    stream = stream.map(model(source, valid="valid")).map(view(div))
+    stream = stream.map(model(
+        source,
+        valid="valid",
+        offset="offset")).map(view(div))
 
     document.add_root(bokeh.layouts.widgetbox(div))
     document.add_root(layout)
@@ -85,7 +84,8 @@ def chronometer(
         valid=None,
         offset=None,
         start=None,
-        source=None):
+        source=None,
+        plus_button=None):
     """Time/forecast exploration widget
 
     Creates a figure with glyphs for each point in
@@ -190,11 +190,14 @@ def chronometer(
     second_source.selected.on_change('indices', rx.callback(second_selected))
     second_selected.log()
 
-    plus_btn = bokeh.models.Button(label="+", width=50)
+    if plus_button is None:
+        plus_button = bokeh.models.Button(
+                label="+",
+                width=50)
     minus_btn = bokeh.models.Button(label="-", width=50)
 
     plus = rx.Stream()
-    plus_btn.on_click(rx.click(plus))
+    plus_button.on_click(rx.click(plus))
     plus = plus.map(+1)
 
     minus = rx.Stream()
@@ -205,13 +208,14 @@ def chronometer(
     steps.map(move(second_source)).map(sync(
         source,
         second_source,
-        valid=valid))
+        valid=valid,
+        offset=offset))
 
     rdo_grp.active = 1
     if len(source.data[valid]) > 0:
         source.selected.indices = [0]
     return bokeh.layouts.layout([
-        [rdo_grp, plus_btn, minus_btn],
+        [rdo_grp, plus_button, minus_btn],
         [figure]])
 
 
@@ -228,12 +232,12 @@ def ticks(max_hour):
     return ticks
 
 
-def sync(large, small, valid="x"):
+def sync(large, small, valid="x", offset="y"):
     def wrapper(event):
         li = large.selected.indices[0]
         si = small.selected.indices[0]
         lx = np.asarray(large.data[valid][:])
-        ly = np.asarray(large.data["y"][:])
+        ly = np.asarray(large.data[offset][:])
         sx = np.asarray(small.data["x"][:])
         sy = np.asarray(small.data["y"][:])
         print('sync called', li, lx[li])
