@@ -6,6 +6,7 @@ import bokeh.events
 import os
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
+from functools import partial
 import rx
 
 
@@ -44,7 +45,7 @@ def main():
         "y": y,
         "z": z
         })
-    layout, stream = chronometer(
+    layout = chronometer(
             valid="valid",
             offset="y",
             start="z",
@@ -57,7 +58,24 @@ def main():
             msg = template.format(x, z, "T+{}".format(str(y)))
             div.text = msg
         return wrapper
-    stream.map(view(div))
+
+    def model(source, valid="x"):
+        def wrapper(new):
+            i = new[0]
+            x, y, z = (
+                    source.data[valid][i],
+                    source.data["y"][i],
+                    source.data["z"][i])
+            if not isinstance(x, dt.datetime):
+                x = dt.datetime.fromtimestamp(x / 1000.)
+            if not isinstance(z, dt.datetime):
+                z = dt.datetime.fromtimestamp(z / 1000.)
+            return x, y, z
+        return wrapper
+
+    stream = rx.Stream()
+    source.selected.on_change('indices', rx.callback(stream))
+    stream = stream.map(model(source, valid="valid")).map(view(div))
 
     document.add_root(bokeh.layouts.widgetbox(div))
     document.add_root(layout)
@@ -134,20 +152,6 @@ def chronometer(
             fill_color="White",
             line_color="Black")
 
-    def model(source):
-        def wrapper(new):
-            i = new[0]
-            x, y, z = (
-                    source.data["x"][i],
-                    source.data["y"][i],
-                    source.data["z"][i])
-            if not isinstance(x, dt.datetime):
-                x = dt.datetime.fromtimestamp(x / 1000.)
-            if not isinstance(z, dt.datetime):
-                z = dt.datetime.fromtimestamp(z / 1000.)
-            return x, y, z
-        return wrapper
-
     selected = rx.Stream()
     source.selected.on_change('indices', rx.callback(selected))
 
@@ -161,10 +165,14 @@ def chronometer(
 
     stream = rx.Stream()
     rdo_grp.on_change("active", rx.callback(stream))
+    strategy = partial(select, valid=valid, start=start, offset=offset)
+    select_valid = partial(strategy, method=valid_time)
+    select_lead = partial(strategy, method=lead_time)
+    select_run = partial(strategy, method=run)
     method_stream = rx.Merge(
-            stream.filter(lambda i: i == 0).map(lambda i: valid_time),
-            stream.filter(lambda i: i == 1).map(lambda i: lead_time),
-            stream.filter(lambda i: i == 2).map(lambda i: run))
+            stream.filter(lambda i: i == 0).map(lambda i: select_valid),
+            stream.filter(lambda i: i == 1).map(lambda i: select_lead),
+            stream.filter(lambda i: i == 2).map(lambda i: select_run))
     states = rx.combine_latest(
             method_stream,
             selected).filter(all_not_none)
@@ -195,14 +203,13 @@ def chronometer(
 
     steps = rx.Merge(plus, minus)
     steps.map(move(second_source)).map(sync(source, second_source))
-    chronometer_stream = selected.map(model(source))
 
     rdo_grp.active = 1
     if len(source.data[valid]) > 0:
         source.selected.indices = [0]
     return bokeh.layouts.layout([
         [rdo_grp, plus_btn, minus_btn],
-        [figure]]), chronometer_stream
+        [figure]])
 
 
 def ticks(max_hour):
@@ -233,6 +240,7 @@ def sync(large, small):
         large.selected.indices = pts[0].tolist()
     return wrapper
 
+
 def move(source):
     def wrapper(steps):
         if len(source.selected.indices) > 0:
@@ -243,13 +251,13 @@ def move(source):
     return wrapper
 
 
-def valid_time(source):
+def select(source, valid="x", start="z", offset="y", method=None):
     if len(source.selected.indices) > 0:
         i = source.selected.indices[0]
-        x = np.asarray(source.data["x"])
-        y = np.asarray(source.data["y"])
-        z = np.asarray(source.data["z"])
-        pts = np.where(x == x[i])
+        x = np.asarray(source.data[valid])
+        y = np.asarray(source.data[offset])
+        z = np.asarray(source.data[start])
+        pts = method(x, y, z, i)
         x = x[pts]
         y = y[pts]
         z = z[pts]
@@ -259,34 +267,16 @@ def valid_time(source):
         return {"x": [], "y": [], "z": []}, []
 
 
-def lead_time(source):
-    if len(source.selected.indices) > 0:
-        i = source.selected.indices[0]
-        x = np.asarray(source.data["x"])
-        y = np.asarray(source.data["y"])
-        z = np.asarray(source.data["z"])
-        pts = np.where(y == y[i])
-        x, y, z = x[pts], y[pts], z[pts]
-        k = [pts[0].tolist().index(i)]
-        return {"x": x, "y": y, "z": z}, k
-    else:
-        return {"x": [], "y": [], "z": []}, []
+def valid_time(x, y, z, i):
+    return np.where(x == x[i])
 
 
-def run(source):
-    if len(source.selected.indices) > 0:
-        i = source.selected.indices[0]
-        x = np.asarray(source.data["x"])
-        y = np.asarray(source.data["y"])
-        z = np.asarray(source.data["z"])
-        pts = np.where(z == z[i])
-        x = x[pts]
-        y = y[pts]
-        z = z[pts]
-        k = [pts[0].tolist().index(i)]
-        return {"x": x, "y": y, "z": z}, k
-    else:
-        return {"x": [], "y": [], "z": []}, []
+def lead_time(x, y, z, i):
+    return np.where(y == y[i])
+
+
+def run(x, y, z, i):
+    return np.where(z == z[i])
 
 
 if __name__.startswith('bk'):

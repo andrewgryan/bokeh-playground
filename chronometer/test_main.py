@@ -5,10 +5,10 @@ import numpy as np
 import bokeh.models
 import main
 import rx
+from functools import partial
 
 
 class TestMain(unittest.TestCase):
-    @unittest.skip("waiting on fix")
     def test_main(self):
         main.main()
 
@@ -55,25 +55,14 @@ class TestChronometer(unittest.TestCase):
                 source=source)
 
 
-class TestLeadTimes(unittest.TestCase):
-    def test_lead_time_given_no_selected(self):
-        event = bokeh.models.ColumnDataSource()
-        result = main.lead_time(event)
-        expect = {'x': [], 'y': [], 'z': []}, []
+class TestPartial(unittest.TestCase):
+    def test_partial_kwargs(self):
+        def method(dummy, a=None):
+            return dummy, a
+        f = partial(method, a=1)
+        result = f("foo")
+        expect = "foo", 1
         self.assertEqual(expect, result)
-
-    def test_lead_time_given_selected(self):
-        source = bokeh.models.ColumnDataSource({
-            "x": [1],
-            "y": [2],
-            "z": [3]
-            })
-        source.selected.indices = [0]
-        rs, ri = main.lead_time(source)
-        es, ei = {'x': [1], 'y': [2], 'z': [3]}, [0]
-        self.assertEqual(ei, ri)
-        for k in ['x', 'y', 'z']:
-            np.testing.assert_array_equal(es[k], rs[k])
 
 
 class TestTicker(unittest.TestCase):
