@@ -39,30 +39,30 @@ class TestMain(unittest.TestCase):
 
 
 class TestTicker(unittest.TestCase):
-    def test_ticks_given_hours(self):
-        self.check([0, 0, 0], [0])
+    def test_ticks_given_max_zero(self):
+        self.check(0, [0])
 
-    def test_ticks_given_ten_hourlies(self):
-        self.check([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], [0, 3, 6, 9])
+    def test_ticks_given_max_nine(self):
+        self.check(9, [0, 3, 6, 9])
 
-    def test_ticks_given_eleven_hourlies(self):
-        self.check([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [0, 3, 6, 9])
+    def test_ticks_given_max_eleven(self):
+        self.check(11, [0, 3, 6, 9])
 
-    def test_ticks_given_non_integer_values(self):
-        self.check([1.5, 3.5], [0, 3])
+    def test_ticks_given_non_integer(self):
+        self.check(3.5, [0, 3])
 
-    def test_ticks_given_forecasts_shorter_than_24_hours(self):
-        self.check([6, 9, 12, 15, 18, 21], [0, 6, 12, 18])
+    def test_ticks_given_max_below_24(self):
+        self.check(21, [0, 6, 12, 18])
 
-    def test_ticks_given_greater_than_24_hours(self):
-        self.check([6, 9, 12, 15, 18, 21, 24], [0, 12, 24])
+    def test_ticks_given_max_above_24(self):
+        self.check(24, [0, 12, 24])
 
-    def test_ticks_given_greater_than_48_hours(self):
-        self.check([6, 12, 18, 24, 30, 36, 42, 48, 54], [0, 24, 48])
+    def test_ticks_given_max_greater_than_48_hours(self):
+        self.check(54, [0, 24, 48])
 
-    def test_ticks_given_greater_than_96_hours(self):
-        self.check([12, 36, 60, 84, 108], [0, 48, 96])
+    def test_ticks_given_max_greater_than_96_hours(self):
+        self.check(108, [0, 48, 96])
 
-    def check(self, hours, expect):
-        result = main.ticks(hours)
+    def check(self, max_hour, expect):
+        result = main.ticks(max_hour)
         self.assertEqual(expect, result)

@@ -93,7 +93,7 @@ def chronometer(valid_dates, offsets, start_dates):
     figure.xaxis.axis_label_text_font_size = "10px"
     figure.yaxis.axis_label = "Forecast length"
     figure.yaxis.axis_label_text_font_size = "10px"
-    figure.yaxis.ticker = ticks(offsets)
+    figure.yaxis.ticker = ticks(max(offsets))
 
     source = bokeh.models.ColumnDataSource({
         "x": valid_dates,
@@ -193,17 +193,14 @@ def chronometer(valid_dates, offsets, start_dates):
         [figure]]), chronometer_stream
 
 
-def ticks(hours):
+def ticks(max_hour):
     """Choose appropriate tick locations for forecasts"""
-    if len(hours) == 0:
-        return []
-    end = max(hours)
     step_size = 3
-    while end >= (4 * step_size):
+    while max_hour >= (4 * step_size):
         step_size *= 2
     hour = 0
     ticks = []
-    while (hour <= end):
+    while (hour <= max_hour):
         ticks.append(hour)
         hour += step_size
     return ticks
