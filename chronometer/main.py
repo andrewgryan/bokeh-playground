@@ -10,22 +10,18 @@ from functools import partial
 import rx
 
 
-def main(
-        plus_button=None,
-        minus_button=None):
+def main():
     document = bokeh.plotting.curdoc()
     source = bokeh.models.ColumnDataSource({
-        "valid": [],
-        "offset": [],
-        "z": []
+        "valid": [dt.datetime(2018, 1, 1, 12)],
+        "offset": [12],
+        "start": [dt.datetime(2018, 1, 1)]
         })
     widgets = chronometer(
             valid="valid",
             offset="offset",
-            start="z",
-            source=source,
-            plus_button=plus_button,
-            minus_button=minus_button)
+            start="start",
+            source=source)
     figure, radio_group, plus_button, minus_button = widgets
     layout = bokeh.layouts.layout([
         [radio_group, plus_button, minus_button],
@@ -42,13 +38,14 @@ def main(
 
     def model(source,
             valid="x",
-            offset="y"):
+            offset="y",
+            start="z"):
         def wrapper(new):
             i = new[0]
             x, y, z = (
                     source.data[valid][i],
                     source.data[offset][i],
-                    source.data["z"][i])
+                    source.data[start][i])
             if not isinstance(x, dt.datetime):
                 x = dt.datetime.fromtimestamp(x / 1000.)
             if not isinstance(z, dt.datetime):
@@ -63,34 +60,6 @@ def main(
         valid="valid",
         offset="offset")).map(view(div))
 
-    def add_time(source):
-        def wrapper(event):
-            run, forecast = event
-            start = dt.datetime(2018, 12, 1) + dt.timedelta(hours=12 * run)
-            offset = forecast * 12
-            valid = start + dt.timedelta(hours=offset)
-            data = {
-                    "valid": [valid],
-                    "offset": [offset],
-                    "z": [start]}
-            source.stream(data)
-        return wrapper
-
-    forecast_button = bokeh.models.Button(label="Next forecast")
-    forecast_stream = rx.Stream()
-    forecast_button.on_click(rx.click(forecast_stream))
-    forecast_stream = forecast_stream.map(1).scan(0, lambda a, i: a + i)
-
-    run_button = bokeh.models.Button(label="Next run")
-    run_stream = rx.Stream()
-    run_button.on_click(rx.click(run_stream))
-    run_stream = run_stream.map(1).scan(0, lambda a, i: a + i)
-
-    (rx.combine_latest(run_stream, forecast_stream).log()
-            .filter(lambda items: all(item is not None for item in items))
-            .map(add_time(source)))
-
-    document.add_root(bokeh.layouts.row(forecast_button, run_button))
     document.add_root(bokeh.layouts.widgetbox(div))
     document.add_root(layout)
 
@@ -107,8 +76,8 @@ def chronometer(
     """Time/forecast exploration widget
 
     Creates a figure with glyphs for each point in
-    time/forecast space along with buttons and a radio
-    group to navigate
+    time/forecast space along with +/- buttons and a
+    radio group to navigate
     """
     msg = ("please specify 'valid', 'start' and 'offset' "
            "keywords")
@@ -119,16 +88,13 @@ def chronometer(
         radio_group = bokeh.models.RadioGroup(labels=[
             "Time", "Forecast", "Run"],
             inline=True,
-            width=210)
+            width=210,
+            active=2)
     if selectors is None:
-        strategy = partial(select_pts, valid=valid, start=start, offset=offset)
-        select_valid = partial(strategy, method=valid_time)
-        select_lead = partial(strategy, method=lead_time)
-        select_run = partial(strategy, method=run)
         selectors = {
-            0: select_valid,
-            1: select_lead,
-            2: select_run,
+            0: select(valid),
+            1: select(offset),
+            2: select(start),
         }
     if plus_button is None:
         plus_button = bokeh.models.Button(
@@ -152,7 +118,7 @@ def chronometer(
     tap_tool = bokeh.models.TapTool()
     figure = bokeh.plotting.figure(x_axis_type='datetime',
                                    plot_height=200,
-                                   plot_width=330,
+                                   plot_width=350,
                                    tools=[
                                        tap_tool,
                                        hover_tool,
@@ -313,23 +279,11 @@ def move(source, valid="x"):
     return wrapper
 
 
-def select_pts(source, index, valid="x", start="z", offset="y", method=None):
-    x = np.asarray(source.data[valid])
-    y = np.asarray(source.data[offset])
-    z = np.asarray(source.data[start])
-    return method(x, y, z, index)
-
-
-def valid_time(x, y, z, i):
-    return np.where(x == x[i])
-
-
-def lead_time(x, y, z, i):
-    return np.where(y == y[i])
-
-
-def run(x, y, z, i):
-    return np.where(z == z[i])
+def select(key):
+    def wrapper(source, index):
+        values = np.asarray(source.data[key])
+        return np.where(values == values[index])
+    return wrapper
 
 
 if __name__.startswith('bk'):

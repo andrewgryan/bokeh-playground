@@ -54,12 +54,19 @@ class TestChronometer(unittest.TestCase):
             "start": [0, 1, 2]
             })
         btn = bokeh.models.Button()
+        radio_group = bokeh.models.RadioGroup(
+                labels=["Key"], active=0)
+        selectors = {
+            0: main.select("offset")
+        }
         main.chronometer(
                 valid="valid",
                 start="start",
                 offset="offset",
                 source=source,
-                minus_button=btn)
+                minus_button=btn,
+                radio_group=radio_group,
+                selectors=selectors)
         btn.trigger('clicks', None, None)
         self.assertEqual(source.selected.indices, [2])
 
@@ -98,9 +105,6 @@ class TestChronometer(unittest.TestCase):
             "start": [],
             "offset": []
             })
-        def select_run(source, index):
-            starts = np.asarray(source.data["start"])
-            return np.where(starts == starts[index])
         main.chronometer(
                 valid="valid",
                 start="start",
@@ -108,7 +112,7 @@ class TestChronometer(unittest.TestCase):
                 source=source,
                 radio_group=radio_group,
                 selectors={
-                    0: select_run
+                    0: main.select("start")
                 },
                 plus_button=button)
         source.stream({
