@@ -47,6 +47,22 @@ class TestMain(unittest.TestCase):
 
 
 class TestChronometer(unittest.TestCase):
+    def test_chronometer_click_minus(self):
+        source = bokeh.models.ColumnDataSource({
+            "valid": [0, 1, 2],
+            "offset": [12, 12, 12],
+            "start": [0, 1, 2]
+            })
+        btn = bokeh.models.Button()
+        main.chronometer(
+                valid="valid",
+                start="start",
+                offset="offset",
+                source=source,
+                minus_button=btn)
+        btn.trigger('clicks', None, None)
+        self.assertEqual(source.selected.indices, [2])
+
     def test_chronometer_given_no_dates(self):
         source = bokeh.models.ColumnDataSource({
             "valid": [],
@@ -58,6 +74,53 @@ class TestChronometer(unittest.TestCase):
                 start="start",
                 offset="offset",
                 source=source)
+
+    def test_chronometer_returns_widgets(self):
+        source = bokeh.models.ColumnDataSource({
+            "valid": [],
+            "start": [],
+            "offset": []
+            })
+        widgets = main.chronometer(
+                valid="valid",
+                start="start",
+                offset="offset",
+                source=source)
+        figure, radio_group, plus, minus = widgets
+        self.assertIsInstance(figure, bokeh.plotting.Figure)
+
+    def test_chronometer_streaming_dates(self):
+        """should keep selection up to date"""
+        button = bokeh.models.Button()
+        radio_group = bokeh.models.RadioGroup(labels=["Run"], active=0)
+        source = bokeh.models.ColumnDataSource({
+            "valid": [],
+            "start": [],
+            "offset": []
+            })
+        def select_run(source, index):
+            starts = np.asarray(source.data["start"])
+            return np.where(starts == starts[index])
+        main.chronometer(
+                valid="valid",
+                start="start",
+                offset="offset",
+                source=source,
+                radio_group=radio_group,
+                selectors={
+                    0: select_run
+                },
+                plus_button=button)
+        source.stream({
+            "valid": [dt.datetime(2018, 1, 1), dt.datetime(2018, 1, 1, 12)],
+            "start": [dt.datetime(2018, 1, 1), dt.datetime(2018, 1, 1)],
+            "offset": [dt.timedelta(hours=0), dt.timedelta(hours=12)]
+            })
+        source.selected.indices = [0]
+        button.trigger('clicks', None, None)
+        result = source.selected.indices
+        expect = [1]
+        self.assertEqual(expect, result)
 
 
 class TestPartial(unittest.TestCase):

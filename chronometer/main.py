@@ -10,41 +10,28 @@ from functools import partial
 import rx
 
 
-def main(plus_button=None):
-    dates = np.array([
-        dt.datetime(2018, 11, 30) + i * dt.timedelta(hours=12)
-        for i in range(100)], dtype=object)
-    forecast_hours = np.array([3 * i for i in range(24)])
-
-    # Display all dates
-    div = bokeh.models.Div()
-    xs = []
-    ys = []
-    zs = []
-    for date in dates:
-        y = forecast_hours.tolist()
-        x = [date + dt.timedelta(hours=float(h))
-            for h in forecast_hours]
-        z = len(forecast_hours) * [date]
-        xs += x
-        ys += y
-        zs += z
-    x, y, z = xs, ys, zs
-
+def main(
+        plus_button=None,
+        minus_button=None):
     document = bokeh.plotting.curdoc()
-
     source = bokeh.models.ColumnDataSource({
-        "valid": x,
-        "offset": y,
-        "z": z
+        "valid": [],
+        "offset": [],
+        "z": []
         })
-    layout = chronometer(
+    widgets = chronometer(
             valid="valid",
             offset="offset",
             start="z",
             source=source,
-            plus_button=plus_button)
+            plus_button=plus_button,
+            minus_button=minus_button)
+    figure, radio_group, plus_button, minus_button = widgets
+    layout = bokeh.layouts.layout([
+        [radio_group, plus_button, minus_button],
+        [figure]])
 
+    div = bokeh.models.Div()
     def view(div):
         def wrapper(state):
             x, y, z = state
@@ -76,6 +63,25 @@ def main(plus_button=None):
         valid="valid",
         offset="offset")).map(view(div))
 
+    def add_time(source):
+        i = 0
+        def wrapper():
+            nonlocal i
+            start = dt.datetime(2018, 12, 1)
+            offset = i * 12
+            valid = start + dt.timedelta(hours=offset)
+            source.stream({
+                    "valid": [valid],
+                    "offset": [offset],
+                    "z": [start]
+                    })
+            i += 1
+        return wrapper
+
+    start_button = bokeh.models.Button(label="Add time")
+    start_button.on_click(add_time(source))
+
+    document.add_root(start_button)
     document.add_root(bokeh.layouts.widgetbox(div))
     document.add_root(layout)
 
@@ -85,18 +91,44 @@ def chronometer(
         offset=None,
         start=None,
         source=None,
-        plus_button=None):
+        radio_group=None,
+        plus_button=None,
+        minus_button=None,
+        selectors=None):
     """Time/forecast exploration widget
 
     Creates a figure with glyphs for each point in
     time/forecast space along with buttons and a radio
     group to navigate
     """
-    if source is None:
-        msg = "please specify 'valid', 'start' and 'offset'"
-        assert valid is not None, msg
-        assert start is not None, msg
-        assert offset is not None, msg
+    msg = ("please specify 'valid', 'start' and 'offset' "
+           "keywords")
+    assert valid is not None, msg
+    assert start is not None, msg
+    assert offset is not None, msg
+    if radio_group is None:
+        radio_group = bokeh.models.RadioGroup(labels=[
+            "Time", "Forecast", "Run"],
+            inline=True,
+            width=210)
+    if selectors is None:
+        strategy = partial(select_pts, valid=valid, start=start, offset=offset)
+        select_valid = partial(strategy, method=valid_time)
+        select_lead = partial(strategy, method=lead_time)
+        select_run = partial(strategy, method=run)
+        selectors = {
+            0: select_valid,
+            1: select_lead,
+            2: select_run,
+        }
+    if plus_button is None:
+        plus_button = bokeh.models.Button(
+                label="+",
+                width=50)
+    if minus_button is None:
+        minus_button = bokeh.models.Button(
+                label="-",
+                width=50)
     hover_tool = bokeh.models.HoverTool(
             tooltips=[
                 ('valid', '@' + valid + '{%F %T}'),
@@ -129,19 +161,25 @@ def chronometer(
     offsets = source.data[offset][:]
     if len(offsets) > 0:
         figure.yaxis.ticker = ticks(max(offsets))
-    renderer = figure.square(x=valid, y=offset, size=8,
+    renderer = figure.square(
+            x=valid,
+            y=offset,
             source=source,
+            size=8,
             line_color=None,
             nonselection_alpha=1,
             nonselection_line_color=None)
     tap_tool.renderers = [renderer]
 
     second_source = bokeh.models.ColumnDataSource({
-        "x": [],
-        "y": [],
-        "z": []
+        valid: [],
+        offset: [],
+        start: []
         })
-    renderer = figure.square(x="x", y="y", size=8,
+    renderer = figure.square(
+            x=valid,
+            y=offset,
+            size=8,
             source=second_source)
     renderer.selection_glyph = bokeh.models.Square(
             fill_alpha=1,
@@ -154,69 +192,76 @@ def chronometer(
 
     selected = rx.Stream()
     source.selected.on_change('indices', rx.callback(selected))
-
-    rdo_grp = bokeh.models.RadioGroup(labels=[
-        "Time", "Forecast", "Run"],
-        inline=True,
-        width=210)
+    selected.log()
 
     def all_not_none(items):
         return all(item is not None for item in items)
 
-    stream = rx.Stream()
-    rdo_grp.on_change("active", rx.callback(stream))
-    strategy = partial(select, valid=valid, start=start, offset=offset)
-    select_valid = partial(strategy, method=valid_time)
-    select_lead = partial(strategy, method=lead_time)
-    select_run = partial(strategy, method=run)
-    method_stream = rx.Merge(
-            stream.filter(lambda i: i == 0).map(lambda i: select_valid),
-            stream.filter(lambda i: i == 1).map(lambda i: select_lead),
-            stream.filter(lambda i: i == 2).map(lambda i: select_run))
-    states = rx.combine_latest(
-            method_stream,
+    active = rx.Stream()
+    radio_group.on_change("active", rx.callback(active))
+    changes = rx.combine_latest(
+            active.map(lambda i: selectors[i]),
             selected).filter(all_not_none)
 
-    def render(full_source, small_source):
+    def render(
+            source,
+            highlight_source,
+            valid="x",
+            offset="y",
+            start="z"):
+        """Updates highlight column data source"""
         def wrapper(event):
-            method, _ = event
-            data, indices = method(full_source)
-            small_source.data = data
-            small_source.selected.indices = indices
+            selector, indices = event
+            if len(indices) == 0:
+                highlight_source.data = {
+                        valid: [],
+                        offset: [],
+                        start: []}
+                highlight_source.selected.indices = []
+            else:
+                index = indices[0]
+                pts = selector(source, index)
+                indices = [pts[0].tolist().index(index)]
+                x = np.asarray(source.data[valid])[pts]
+                y = np.asarray(source.data[offset])[pts]
+                z = np.asarray(source.data[start])[pts]
+                highlight_source.data = {
+                        valid: x,
+                        offset: y,
+                        start: z}
+                highlight_source.selected.indices = indices
         return wrapper
-    states.map(render(source, second_source))
+
+    changes.map(render(source, second_source,
+        valid=valid,
+        offset=offset,
+        start=start))
 
     second_selected = rx.Stream()
     second_source.selected.on_change('indices', rx.callback(second_selected))
     second_selected.log()
-
-    if plus_button is None:
-        plus_button = bokeh.models.Button(
-                label="+",
-                width=50)
-    minus_btn = bokeh.models.Button(label="-", width=50)
 
     plus = rx.Stream()
     plus_button.on_click(rx.click(plus))
     plus = plus.map(+1)
 
     minus = rx.Stream()
-    minus_btn.on_click(rx.click(minus))
+    minus_button.on_click(rx.click(minus))
     minus = minus.map(-1)
 
     steps = rx.Merge(plus, minus)
-    steps.map(move(second_source)).map(sync(
+    steps.map(move(second_source, valid=valid)).map(sync(
         source,
         second_source,
         valid=valid,
         offset=offset))
 
-    rdo_grp.active = 1
     if len(source.data[valid]) > 0:
         source.selected.indices = [0]
-    return bokeh.layouts.layout([
-        [rdo_grp, plus_button, minus_btn],
-        [figure]])
+
+    if radio_group.active is not None:
+        active.emit(radio_group.active)
+    return figure, radio_group, plus_button, minus_button
 
 
 def ticks(max_hour):
@@ -234,13 +279,14 @@ def ticks(max_hour):
 
 def sync(large, small, valid="x", offset="y"):
     def wrapper(event):
-        li = large.selected.indices[0]
+        if len(small.selected.indices) == 0:
+            return
         si = small.selected.indices[0]
+        li = large.selected.indices[0]
+        sx = np.asarray(small.data[valid][:])
+        sy = np.asarray(small.data[offset][:])
         lx = np.asarray(large.data[valid][:])
         ly = np.asarray(large.data[offset][:])
-        sx = np.asarray(small.data["x"][:])
-        sy = np.asarray(small.data["y"][:])
-        print('sync called', li, lx[li])
         if ((lx[li] == sx[si]) and (ly[li] == sy[si])):
             return
         pts = np.where((lx == sx[si]) & (ly == sy[si]))
@@ -248,30 +294,21 @@ def sync(large, small, valid="x", offset="y"):
     return wrapper
 
 
-def move(source):
+def move(source, valid="x"):
     def wrapper(steps):
         if len(source.selected.indices) > 0:
             i = source.selected.indices[0]
-            n = len(source.data["x"])
+            n = len(source.data[valid])
             source.selected.indices = [(i + steps) % n]
         return source.selected.indices
     return wrapper
 
 
-def select(source, valid="x", start="z", offset="y", method=None):
-    if len(source.selected.indices) > 0:
-        i = source.selected.indices[0]
-        x = np.asarray(source.data[valid])
-        y = np.asarray(source.data[offset])
-        z = np.asarray(source.data[start])
-        pts = method(x, y, z, i)
-        x = x[pts]
-        y = y[pts]
-        z = z[pts]
-        k = [pts[0].tolist().index(i)]
-        return {"x": x, "y": y, "z": z}, k
-    else:
-        return {"x": [], "y": [], "z": []}, []
+def select_pts(source, index, valid="x", start="z", offset="y", method=None):
+    x = np.asarray(source.data[valid])
+    y = np.asarray(source.data[offset])
+    z = np.asarray(source.data[start])
+    return method(x, y, z, index)
 
 
 def valid_time(x, y, z, i):
