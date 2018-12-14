@@ -4,6 +4,7 @@ import datetime as dt
 import numpy as np
 import bokeh.models
 import main
+import chronometer
 import rx
 from functools import partial
 
@@ -52,9 +53,9 @@ class TestChronometer(unittest.TestCase):
         radio_group = bokeh.models.RadioGroup(
                 labels=["Key"], active=0)
         selectors = {
-            0: main.select("offset")
+            0: chronometer.select("offset")
         }
-        main.chronometer(
+        chronometer.chronometer(
                 valid="valid",
                 start="start",
                 offset="offset",
@@ -72,7 +73,7 @@ class TestChronometer(unittest.TestCase):
             "start": [],
             "offset": []
             })
-        widget = main.chronometer(
+        widget = chronometer.chronometer(
                 valid="valid",
                 start="start",
                 offset="offset",
@@ -84,7 +85,7 @@ class TestChronometer(unittest.TestCase):
             "start": [],
             "offset": []
             })
-        widgets = main.chronometer(
+        widgets = chronometer.chronometer(
                 valid="valid",
                 start="start",
                 offset="offset",
@@ -101,14 +102,14 @@ class TestChronometer(unittest.TestCase):
             "start": [],
             "offset": []
             })
-        main.chronometer(
+        chronometer.chronometer(
                 valid="valid",
                 start="start",
                 offset="offset",
                 source=source,
                 radio_group=radio_group,
                 selectors={
-                    0: main.select("start")
+                    0: chronometer.select("start")
                 },
                 plus_button=button)
         source.stream({
@@ -159,5 +160,5 @@ class TestTicker(unittest.TestCase):
         self.check(108, [0, 48, 96])
 
     def check(self, max_hour, expect):
-        result = main.ticks(max_hour)
+        result = chronometer.ticks(max_hour)
         self.assertEqual(expect, result)
