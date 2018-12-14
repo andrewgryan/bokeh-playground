@@ -213,7 +213,7 @@ def chronometer(
     minus = minus.map(-1)
 
     steps = rx.Merge(plus, minus)
-    steps.map(move(second_source, valid=valid)).map(sync(
+    steps.map(move(second_source)).map(sync(
         source,
         second_source,
         valid=valid,
@@ -243,7 +243,6 @@ def ticks(max_hour):
 
 def sync(large, small, valid="x", offset="y"):
     def wrapper(event):
-        print('sync called')
         if len(small.selected.indices) == 0:
             return
         si = small.selected.indices[0]
@@ -259,11 +258,12 @@ def sync(large, small, valid="x", offset="y"):
     return wrapper
 
 
-def move(source, valid="x"):
+def move(source):
     def wrapper(steps):
         if len(source.selected.indices) > 0:
             i = source.selected.indices[0]
-            n = len(source.data[valid])
+            key = list(source.data.keys())[0]
+            n = len(source.data[key])
             source.selected.indices = [(i + steps) % n]
         return source.selected.indices
     return wrapper

@@ -12,11 +12,6 @@ class TestMain(unittest.TestCase):
     def test_main(self):
         main.main()
 
-    def test_main_click_plus(self):
-        btn = bokeh.models.Button()
-        main.main(plus_button=btn)
-        btn.trigger('clicks', None, None)
-
     def test_click_stream(self):
         stream = unittest.mock.Mock()
         callback = rx.click(stream)
@@ -67,6 +62,7 @@ class TestChronometer(unittest.TestCase):
                 minus_button=btn,
                 radio_group=radio_group,
                 selectors=selectors)
+        source.selected.indices = [0]
         btn.trigger('clicks', None, None)
         self.assertEqual(source.selected.indices, [2])
 
