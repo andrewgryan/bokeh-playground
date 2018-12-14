@@ -64,24 +64,33 @@ def main(
         offset="offset")).map(view(div))
 
     def add_time(source):
-        i = 0
-        def wrapper():
-            nonlocal i
-            start = dt.datetime(2018, 12, 1)
-            offset = i * 12
+        def wrapper(event):
+            run, forecast = event
+            start = dt.datetime(2018, 12, 1) + dt.timedelta(hours=12 * run)
+            offset = forecast * 12
             valid = start + dt.timedelta(hours=offset)
-            source.stream({
+            data = {
                     "valid": [valid],
                     "offset": [offset],
-                    "z": [start]
-                    })
-            i += 1
+                    "z": [start]}
+            source.stream(data)
         return wrapper
 
-    start_button = bokeh.models.Button(label="Add time")
-    start_button.on_click(add_time(source))
+    forecast_button = bokeh.models.Button(label="Next forecast")
+    forecast_stream = rx.Stream()
+    forecast_button.on_click(rx.click(forecast_stream))
+    forecast_stream = forecast_stream.map(1).scan(0, lambda a, i: a + i)
 
-    document.add_root(start_button)
+    run_button = bokeh.models.Button(label="Next run")
+    run_stream = rx.Stream()
+    run_button.on_click(rx.click(run_stream))
+    run_stream = run_stream.map(1).scan(0, lambda a, i: a + i)
+
+    (rx.combine_latest(run_stream, forecast_stream).log()
+            .filter(lambda items: all(item is not None for item in items))
+            .map(add_time(source)))
+
+    document.add_root(bokeh.layouts.row(forecast_button, run_button))
     document.add_root(bokeh.layouts.widgetbox(div))
     document.add_root(layout)
 
