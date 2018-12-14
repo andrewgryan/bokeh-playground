@@ -13,9 +13,20 @@ import rx
 def main():
     document = bokeh.plotting.curdoc()
     source = bokeh.models.ColumnDataSource({
-        "valid": [dt.datetime(2018, 1, 1, 12)],
-        "offset": [12],
-        "start": [dt.datetime(2018, 1, 1)]
+        "valid": [
+            dt.datetime(2018, 1, 1, 12),
+            dt.datetime(2018, 1, 2, 0),
+            dt.datetime(2018, 1, 2, 6),
+            dt.datetime(2018, 1, 2, 12),
+            dt.datetime(2018, 1, 3, 0),
+            ],
+        "offset": [12, 0, 6, 12, 0],
+        "start": [
+            dt.datetime(2018, 1, 1),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 3)]
         })
     widgets = chronometer(
             valid="valid",
@@ -58,7 +69,10 @@ def main():
     stream = stream.map(model(
         source,
         valid="valid",
-        offset="offset")).map(view(div))
+        offset="offset",
+        start="start")).map(view(div))
+
+    source.selected.indices = [0]
 
     document.add_root(bokeh.layouts.widgetbox(div))
     document.add_root(layout)
@@ -128,7 +142,6 @@ def chronometer(
                                    toolbar_location=None)
     figure.toolbar.active_inspect = hover_tool
     figure.ygrid.grid_line_color = None
-
     figure.xaxis.axis_label = "Validity time"
     figure.xaxis.axis_label_text_font_size = "10px"
     figure.yaxis.axis_label = "Forecast length"
@@ -149,8 +162,7 @@ def chronometer(
     second_source = bokeh.models.ColumnDataSource({
         valid: [],
         offset: [],
-        start: []
-        })
+        start: []})
     renderer = figure.square(
             x=valid,
             y=offset,
@@ -167,10 +179,6 @@ def chronometer(
 
     selected = rx.Stream()
     source.selected.on_change('indices', rx.callback(selected))
-    selected.log()
-
-    def all_not_none(items):
-        return all(item is not None for item in items)
 
     active = rx.Stream()
     radio_group.on_change("active", rx.callback(active))
@@ -178,43 +186,23 @@ def chronometer(
             active.map(lambda i: selectors[i]),
             selected).filter(all_not_none)
 
-    def render(
-            source,
-            highlight_source,
-            valid="x",
-            offset="y",
-            start="z"):
-        """Updates highlight column data source"""
+    def render(source, second_source):
+        """Updates secondary source used to highlight selection"""
         def wrapper(event):
             selector, indices = event
             if len(indices) == 0:
-                highlight_source.data = {
-                        valid: [],
-                        offset: [],
-                        start: []}
-                highlight_source.selected.indices = []
+                indices = []
+                data = {k: [] for k in source.data.keys()}
             else:
                 index = indices[0]
                 pts = selector(source, index)
                 indices = [pts[0].tolist().index(index)]
-                x = np.asarray(source.data[valid])[pts]
-                y = np.asarray(source.data[offset])[pts]
-                z = np.asarray(source.data[start])[pts]
-                highlight_source.data = {
-                        valid: x,
-                        offset: y,
-                        start: z}
-                highlight_source.selected.indices = indices
+                data = {k: np.asarray(v)[pts] for k, v in source.data.items()}
+            second_source.data = data
+            second_source.selected.indices = indices
         return wrapper
 
-    changes.map(render(source, second_source,
-        valid=valid,
-        offset=offset,
-        start=start))
-
-    second_selected = rx.Stream()
-    second_source.selected.on_change('indices', rx.callback(second_selected))
-    second_selected.log()
+    changes.map(render(source, second_source))
 
     plus = rx.Stream()
     plus_button.on_click(rx.click(plus))
@@ -231,12 +219,13 @@ def chronometer(
         valid=valid,
         offset=offset))
 
-    if len(source.data[valid]) > 0:
-        source.selected.indices = [0]
-
     if radio_group.active is not None:
         active.emit(radio_group.active)
     return figure, radio_group, plus_button, minus_button
+
+
+def all_not_none(items):
+    return all(item is not None for item in items)
 
 
 def ticks(max_hour):
@@ -254,6 +243,7 @@ def ticks(max_hour):
 
 def sync(large, small, valid="x", offset="y"):
     def wrapper(event):
+        print('sync called')
         if len(small.selected.indices) == 0:
             return
         si = small.selected.indices[0]
