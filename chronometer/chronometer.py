@@ -46,8 +46,8 @@ def chronometer(
     True
 
     The associated glyphs react to changes in
-    the `source.selected.indices` and the appropriate
-    clicks from the radio group, plus and minus buttons
+    the `source.selected.indices` and clicks from the
+    radio group, plus and minus buttons
 
     >>> import datetime as dt
     >>> source.stream({
@@ -60,10 +60,12 @@ def chronometer(
     **Selectors**
 
     The radio group allows the user to choose between
-    time/forecast selection algorithms
+    time/forecast selection algorithms, the user
+    is also able to specify their own time/forecast
+    space selection algorithm
 
     >>> selectors = {
-    ...     0: select("key")
+    ...     0: select("key"),
     ... }
 
     The keys of the selectors dict maps radio
