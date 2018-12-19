@@ -32,12 +32,31 @@ def main():
         f.toolbar_location = None
         f.add_tile(tile)
 
-    first_glyph = plot_image(first)
-    second_glyph = plot_image(first)
-    third_glyph = plot_image(second)
+    nx, ny = 10, 10
+    x, y = np.meshgrid(
+            np.linspace(0, 10, nx),
+            np.linspace(0, 10, ny))
+    z = x * y
+    source_1 = image_source(x, y, z)
 
-    figures[0].circle([1, 2, 3], [1, 2, 3])
-    figures[1].circle([1, 2, 3], [1, 2, 3], fill_color="red", line_color=None)
+    nx, ny = 10, 10
+    x, y = np.meshgrid(
+            np.linspace(10, 20, nx),
+            np.linspace(0, 10, ny))
+    z = x * y
+    source_2 = image_source(x, y, z)
+
+    low = z.min()
+    high = z.max()
+    color_mapper = bokeh.models.LinearColorMapper(
+        palette=bokeh.palettes.Viridis256,
+        low=low,
+        high=high
+    )
+
+    first_glyph = plot_image(first, source_1, color_mapper)
+    second_glyph = plot_image(first, source_2, color_mapper)
+    third_glyph = plot_image(second, source_2, color_mapper)
 
     layout = bokeh.layouts.row(*figures, sizing_mode="stretch_both")
     layout.children = [figures[0]]  # Trick to keep correct sizing modes
@@ -48,21 +67,11 @@ def main():
     document.add_root(button)
 
 
-def image_source():
-    # Define grid
-    nx, ny = 40, 50
-    x = np.linspace(0, 10, nx)
-    y = np.linspace(0, 10, ny)
-    x2d, y2d = np.meshgrid(x, y)
-
+def image_source(x, y, z):
     # Map to Google Mercator projection
     gl = cartopy.crs.Mercator.GOOGLE
     pc = cartopy.crs.PlateCarree()
-    x, y, _ = gl.transform_points(pc, x2d.flatten(), y2d.flatten()).T
-
-    z = x2d + y2d
-    low = z.min()
-    high = z.max()
+    x, y, _ = gl.transform_points(pc, x.flatten(), y.flatten()).T
     return bokeh.models.ColumnDataSource({
         "x": [x.min()],
         "y": [y.min()],
@@ -81,14 +90,6 @@ def plot_image(figure, source, color_mapper):
         image="image",
         source=source,
         color_mapper=color_mapper
-    )
-
-
-def color_mapper(low, high):
-    return bokeh.models.LinearColorMapper(
-        palette=bokeh.palettes.Viridis256,
-        low=low,
-        high=high
     )
 
 
