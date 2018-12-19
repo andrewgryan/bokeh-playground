@@ -11,32 +11,25 @@ def main():
     ]
     figures[0].circle([1, 2, 3], [1, 2, 3])
     figures[1].circle([1, 2, 3], [1, 2, 3], fill_color="red", line_color=None)
-
     for f in figures:
         f.toolbar.logo = None
         f.toolbar_location = None
 
     layout = bokeh.layouts.row(*figures, sizing_mode="stretch_both")
+    layout.children = [figures[0]]  # Trick to keep correct sizing modes
+
     button = bokeh.models.Button()
-    button.on_click(toggle("single", figures, layout))
+    button.on_click(toggle(figures, layout))
     document.add_root(layout)
     document.add_root(button)
 
 
-def toggle(design, figures, layout):
+def toggle(figures, layout):
     def render():
-        nonlocal design
-        # Layout figures
-        if design == "double":
+        if len(layout.children) == 1:
             layout.children = figures
         else:
             layout.children = [figures[0]]
-
-        # Toggle state
-        if design == "double":
-            design = "single"
-        else:
-            design = "double"
     return render
 
 
