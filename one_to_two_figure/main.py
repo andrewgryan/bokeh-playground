@@ -5,9 +5,15 @@ import bokeh.layouts
 
 def main():
     document = bokeh.plotting.curdoc()
+    first = bokeh.plotting.figure(
+        active_scroll="wheel_zoom")
+    second = bokeh.plotting.figure(
+        active_scroll="wheel_zoom",
+        x_range=first.x_range,
+        y_range=first.y_range)
     figures = [
-     bokeh.plotting.figure(),
-     bokeh.plotting.figure()
+     first,
+     second
     ]
     figures[0].circle([1, 2, 3], [1, 2, 3])
     figures[1].circle([1, 2, 3], [1, 2, 3], fill_color="red", line_color=None)
