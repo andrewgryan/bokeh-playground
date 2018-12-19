@@ -32,8 +32,9 @@ def main():
         f.toolbar_location = None
         f.add_tile(tile)
 
-    plot_image(first)
-    plot_image(second)
+    first_glyph = plot_image(first)
+    second_glyph = plot_image(first)
+    third_glyph = plot_image(second)
 
     figures[0].circle([1, 2, 3], [1, 2, 3])
     figures[1].circle([1, 2, 3], [1, 2, 3], fill_color="red", line_color=None)
@@ -47,7 +48,7 @@ def main():
     document.add_root(button)
 
 
-def plot_image(figure):
+def image_source():
     # Define grid
     nx, ny = 40, 50
     x = np.linspace(0, 10, nx)
@@ -62,21 +63,17 @@ def plot_image(figure):
     z = x2d + y2d
     low = z.min()
     high = z.max()
-
-    palette = bokeh.palettes.Viridis256
-    color_mapper = bokeh.models.LinearColorMapper(
-        palette=palette,
-        low=low,
-        high=high
-    )
-    source = bokeh.models.ColumnDataSource({
+    return bokeh.models.ColumnDataSource({
         "x": [x.min()],
         "y": [y.min()],
         "dw": [x.max() - x.min()],
         "dh": [y.max() - y.min()],
         "image": [z]
         })
-    figure.image(
+
+
+def plot_image(figure, source, color_mapper):
+    return figure.image(
         x="x",
         y="y",
         dw="dw",
@@ -85,12 +82,24 @@ def plot_image(figure):
         source=source,
         color_mapper=color_mapper
     )
+
+
+def color_mapper(low, high):
+    return bokeh.models.LinearColorMapper(
+        palette=bokeh.palettes.Viridis256,
+        low=low,
+        high=high
+    )
+
+
+def colorbar(figure, color_mapper):
     color_bar = bokeh.models.ColorBar(
         color_mapper=color_mapper,
         orientation='horizontal',
         background_fill_alpha=0,
         location='bottom_center')
     figure.add_layout(color_bar, 'center')
+    return color_bar
 
 
 def toggle(figures, layout):
