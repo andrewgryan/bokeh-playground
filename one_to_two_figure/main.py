@@ -1,6 +1,8 @@
 import bokeh.plotting
 import bokeh.models
 import bokeh.layouts
+import cartopy
+import numpy as np
 
 
 def main():
@@ -30,6 +32,9 @@ def main():
         f.toolbar_location = None
         f.add_tile(tile)
 
+    plot_image(first)
+    plot_image(second)
+
     figures[0].circle([1, 2, 3], [1, 2, 3])
     figures[1].circle([1, 2, 3], [1, 2, 3], fill_color="red", line_color=None)
 
@@ -40,6 +45,52 @@ def main():
     button.on_click(toggle(figures, layout))
     document.add_root(layout)
     document.add_root(button)
+
+
+def plot_image(figure):
+    # Define grid
+    nx, ny = 40, 50
+    x = np.linspace(0, 10, nx)
+    y = np.linspace(0, 10, ny)
+    x2d, y2d = np.meshgrid(x, y)
+
+    # Map to Google Mercator projection
+    gl = cartopy.crs.Mercator.GOOGLE
+    pc = cartopy.crs.PlateCarree()
+    x, y, _ = gl.transform_points(pc, x2d.flatten(), y2d.flatten()).T
+
+    z = x2d + y2d
+    low = z.min()
+    high = z.max()
+
+    palette = bokeh.palettes.Viridis256
+    color_mapper = bokeh.models.LinearColorMapper(
+        palette=palette,
+        low=low,
+        high=high
+    )
+    source = bokeh.models.ColumnDataSource({
+        "x": [x.min()],
+        "y": [y.min()],
+        "dw": [x.max() - x.min()],
+        "dh": [y.max() - y.min()],
+        "image": [z]
+        })
+    figure.image(
+        x="x",
+        y="y",
+        dw="dw",
+        dh="dh",
+        image="image",
+        source=source,
+        color_mapper=color_mapper
+    )
+    color_bar = bokeh.models.ColorBar(
+        color_mapper=color_mapper,
+        orientation='horizontal',
+        background_fill_alpha=0,
+        location='bottom_center')
+    figure.add_layout(color_bar, 'center')
 
 
 def toggle(figures, layout):
