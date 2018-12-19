@@ -1,4 +1,3 @@
-import numpy as np
 import datetime as dt
 import bokeh.plotting
 import bokeh.models
@@ -6,45 +5,39 @@ import bokeh.events
 import os
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
-from functools import partial
 import rx
+import chronometer
 
 
-def main(plus_button=None):
-    dates = np.array([
-        dt.datetime(2018, 11, 30) + i * dt.timedelta(hours=12)
-        for i in range(100)], dtype=object)
-    forecast_hours = np.array([3 * i for i in range(24)])
-
-    # Display all dates
-    div = bokeh.models.Div()
-    xs = []
-    ys = []
-    zs = []
-    for date in dates:
-        y = forecast_hours.tolist()
-        x = [date + dt.timedelta(hours=float(h))
-            for h in forecast_hours]
-        z = len(forecast_hours) * [date]
-        xs += x
-        ys += y
-        zs += z
-    x, y, z = xs, ys, zs
-
+def main():
     document = bokeh.plotting.curdoc()
-
     source = bokeh.models.ColumnDataSource({
-        "valid": x,
-        "offset": y,
-        "z": z
+        "valid": [
+            dt.datetime(2018, 1, 1, 12),
+            dt.datetime(2018, 1, 2, 0),
+            dt.datetime(2018, 1, 2, 6),
+            dt.datetime(2018, 1, 2, 12),
+            dt.datetime(2018, 1, 3, 0),
+            ],
+        "offset": [12, 0, 6, 12, 0],
+        "start": [
+            dt.datetime(2018, 1, 1),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 3)]
         })
-    layout = chronometer(
+    widgets = chronometer.chronometer(
             valid="valid",
             offset="offset",
-            start="z",
-            source=source,
-            plus_button=plus_button)
+            start="start",
+            source=source)
+    figure, radio_group, plus_button, minus_button = widgets
+    layout = bokeh.layouts.layout([
+        [radio_group, plus_button, minus_button],
+        [figure]])
 
+    div = bokeh.models.Div()
     def view(div):
         def wrapper(state):
             x, y, z = state
@@ -55,13 +48,14 @@ def main(plus_button=None):
 
     def model(source,
             valid="x",
-            offset="y"):
+            offset="y",
+            start="z"):
         def wrapper(new):
             i = new[0]
             x, y, z = (
                     source.data[valid][i],
                     source.data[offset][i],
-                    source.data["z"][i])
+                    source.data[start][i])
             if not isinstance(x, dt.datetime):
                 x = dt.datetime.fromtimestamp(x / 1000.)
             if not isinstance(z, dt.datetime):
@@ -74,216 +68,13 @@ def main(plus_button=None):
     stream = stream.map(model(
         source,
         valid="valid",
-        offset="offset")).map(view(div))
+        offset="offset",
+        start="start")).map(view(div))
+
+    source.selected.indices = [0]
 
     document.add_root(bokeh.layouts.widgetbox(div))
     document.add_root(layout)
-
-
-def chronometer(
-        valid=None,
-        offset=None,
-        start=None,
-        source=None,
-        plus_button=None):
-    """Time/forecast exploration widget
-
-    Creates a figure with glyphs for each point in
-    time/forecast space along with buttons and a radio
-    group to navigate
-    """
-    if source is None:
-        msg = "please specify 'valid', 'start' and 'offset'"
-        assert valid is not None, msg
-        assert start is not None, msg
-        assert offset is not None, msg
-    hover_tool = bokeh.models.HoverTool(
-            tooltips=[
-                ('valid', '@' + valid + '{%F %T}'),
-                ('start', '@' + start + '{%F %T}'),
-                ('length', 'T+@' + offset)
-                ],
-            formatters={
-                valid: 'datetime',
-                start: 'datetime'
-                })
-    pan_tool = bokeh.models.PanTool(dimensions="width")
-    tap_tool = bokeh.models.TapTool()
-    figure = bokeh.plotting.figure(x_axis_type='datetime',
-                                   plot_height=200,
-                                   plot_width=330,
-                                   tools=[
-                                       tap_tool,
-                                       hover_tool,
-                                       pan_tool,
-                                       "xwheel_zoom"],
-                                   active_scroll="xwheel_zoom",
-                                   toolbar_location=None)
-    figure.toolbar.active_inspect = hover_tool
-    figure.ygrid.grid_line_color = None
-
-    figure.xaxis.axis_label = "Validity time"
-    figure.xaxis.axis_label_text_font_size = "10px"
-    figure.yaxis.axis_label = "Forecast length"
-    figure.yaxis.axis_label_text_font_size = "10px"
-    offsets = source.data[offset][:]
-    if len(offsets) > 0:
-        figure.yaxis.ticker = ticks(max(offsets))
-    renderer = figure.square(x=valid, y=offset, size=8,
-            source=source,
-            line_color=None,
-            nonselection_alpha=1,
-            nonselection_line_color=None)
-    tap_tool.renderers = [renderer]
-
-    second_source = bokeh.models.ColumnDataSource({
-        "x": [],
-        "y": [],
-        "z": []
-        })
-    renderer = figure.square(x="x", y="y", size=8,
-            source=second_source)
-    renderer.selection_glyph = bokeh.models.Square(
-            fill_alpha=1,
-            fill_color="Red",
-            line_color="Black")
-    renderer.nonselection_glyph = bokeh.models.Square(
-            fill_alpha=1,
-            fill_color="White",
-            line_color="Black")
-
-    selected = rx.Stream()
-    source.selected.on_change('indices', rx.callback(selected))
-
-    rdo_grp = bokeh.models.RadioGroup(labels=[
-        "Time", "Forecast", "Run"],
-        inline=True,
-        width=210)
-
-    def all_not_none(items):
-        return all(item is not None for item in items)
-
-    stream = rx.Stream()
-    rdo_grp.on_change("active", rx.callback(stream))
-    strategy = partial(select, valid=valid, start=start, offset=offset)
-    select_valid = partial(strategy, method=valid_time)
-    select_lead = partial(strategy, method=lead_time)
-    select_run = partial(strategy, method=run)
-    method_stream = rx.Merge(
-            stream.filter(lambda i: i == 0).map(lambda i: select_valid),
-            stream.filter(lambda i: i == 1).map(lambda i: select_lead),
-            stream.filter(lambda i: i == 2).map(lambda i: select_run))
-    states = rx.combine_latest(
-            method_stream,
-            selected).filter(all_not_none)
-
-    def render(full_source, small_source):
-        def wrapper(event):
-            method, _ = event
-            data, indices = method(full_source)
-            small_source.data = data
-            small_source.selected.indices = indices
-        return wrapper
-    states.map(render(source, second_source))
-
-    second_selected = rx.Stream()
-    second_source.selected.on_change('indices', rx.callback(second_selected))
-    second_selected.log()
-
-    if plus_button is None:
-        plus_button = bokeh.models.Button(
-                label="+",
-                width=50)
-    minus_btn = bokeh.models.Button(label="-", width=50)
-
-    plus = rx.Stream()
-    plus_button.on_click(rx.click(plus))
-    plus = plus.map(+1)
-
-    minus = rx.Stream()
-    minus_btn.on_click(rx.click(minus))
-    minus = minus.map(-1)
-
-    steps = rx.Merge(plus, minus)
-    steps.map(move(second_source)).map(sync(
-        source,
-        second_source,
-        valid=valid,
-        offset=offset))
-
-    rdo_grp.active = 1
-    if len(source.data[valid]) > 0:
-        source.selected.indices = [0]
-    return bokeh.layouts.layout([
-        [rdo_grp, plus_button, minus_btn],
-        [figure]])
-
-
-def ticks(max_hour):
-    """Choose appropriate tick locations for forecasts"""
-    step_size = 3
-    while max_hour >= (4 * step_size):
-        step_size *= 2
-    hour = 0
-    ticks = []
-    while (hour <= max_hour):
-        ticks.append(hour)
-        hour += step_size
-    return ticks
-
-
-def sync(large, small, valid="x", offset="y"):
-    def wrapper(event):
-        li = large.selected.indices[0]
-        si = small.selected.indices[0]
-        lx = np.asarray(large.data[valid][:])
-        ly = np.asarray(large.data[offset][:])
-        sx = np.asarray(small.data["x"][:])
-        sy = np.asarray(small.data["y"][:])
-        print('sync called', li, lx[li])
-        if ((lx[li] == sx[si]) and (ly[li] == sy[si])):
-            return
-        pts = np.where((lx == sx[si]) & (ly == sy[si]))
-        large.selected.indices = pts[0].tolist()
-    return wrapper
-
-
-def move(source):
-    def wrapper(steps):
-        if len(source.selected.indices) > 0:
-            i = source.selected.indices[0]
-            n = len(source.data["x"])
-            source.selected.indices = [(i + steps) % n]
-        return source.selected.indices
-    return wrapper
-
-
-def select(source, valid="x", start="z", offset="y", method=None):
-    if len(source.selected.indices) > 0:
-        i = source.selected.indices[0]
-        x = np.asarray(source.data[valid])
-        y = np.asarray(source.data[offset])
-        z = np.asarray(source.data[start])
-        pts = method(x, y, z, i)
-        x = x[pts]
-        y = y[pts]
-        z = z[pts]
-        k = [pts[0].tolist().index(i)]
-        return {"x": x, "y": y, "z": z}, k
-    else:
-        return {"x": [], "y": [], "z": []}, []
-
-
-def valid_time(x, y, z, i):
-    return np.where(x == x[i])
-
-
-def lead_time(x, y, z, i):
-    return np.where(y == y[i])
-
-
-def run(x, y, z, i):
-    return np.where(z == z[i])
 
 
 if __name__.startswith('bk'):

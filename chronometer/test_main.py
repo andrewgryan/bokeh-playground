@@ -4,6 +4,7 @@ import datetime as dt
 import numpy as np
 import bokeh.models
 import main
+import chronometer
 import rx
 from functools import partial
 
@@ -11,11 +12,6 @@ from functools import partial
 class TestMain(unittest.TestCase):
     def test_main(self):
         main.main()
-
-    def test_main_click_plus(self):
-        btn = bokeh.models.Button()
-        main.main(plus_button=btn)
-        btn.trigger('clicks', None, None)
 
     def test_click_stream(self):
         stream = unittest.mock.Mock()
@@ -47,17 +43,85 @@ class TestMain(unittest.TestCase):
 
 
 class TestChronometer(unittest.TestCase):
+    def test_chronometer_click_minus(self):
+        source = bokeh.models.ColumnDataSource({
+            "valid": [0, 1, 2],
+            "offset": [12, 12, 12],
+            "start": [0, 1, 2]
+            })
+        btn = bokeh.models.Button()
+        radio_group = bokeh.models.RadioGroup(
+                labels=["Key"], active=0)
+        selectors = {
+            0: chronometer.select("offset")
+        }
+        chronometer.chronometer(
+                valid="valid",
+                start="start",
+                offset="offset",
+                source=source,
+                minus_button=btn,
+                radio_group=radio_group,
+                selectors=selectors)
+        source.selected.indices = [0]
+        btn.trigger('clicks', None, None)
+        self.assertEqual(source.selected.indices, [2])
+
     def test_chronometer_given_no_dates(self):
         source = bokeh.models.ColumnDataSource({
             "valid": [],
             "start": [],
             "offset": []
             })
-        widget = main.chronometer(
+        widget = chronometer.chronometer(
                 valid="valid",
                 start="start",
                 offset="offset",
                 source=source)
+
+    def test_chronometer_returns_widgets(self):
+        source = bokeh.models.ColumnDataSource({
+            "valid": [],
+            "start": [],
+            "offset": []
+            })
+        widgets = chronometer.chronometer(
+                valid="valid",
+                start="start",
+                offset="offset",
+                source=source)
+        figure, radio_group, plus, minus = widgets
+        self.assertIsInstance(figure, bokeh.plotting.Figure)
+
+    def test_chronometer_streaming_dates(self):
+        """should keep selection up to date"""
+        button = bokeh.models.Button()
+        radio_group = bokeh.models.RadioGroup(labels=["Run"], active=0)
+        source = bokeh.models.ColumnDataSource({
+            "valid": [],
+            "start": [],
+            "offset": []
+            })
+        chronometer.chronometer(
+                valid="valid",
+                start="start",
+                offset="offset",
+                source=source,
+                radio_group=radio_group,
+                selectors={
+                    0: chronometer.select("start")
+                },
+                plus_button=button)
+        source.stream({
+            "valid": [dt.datetime(2018, 1, 1), dt.datetime(2018, 1, 1, 12)],
+            "start": [dt.datetime(2018, 1, 1), dt.datetime(2018, 1, 1)],
+            "offset": [dt.timedelta(hours=0), dt.timedelta(hours=12)]
+            })
+        source.selected.indices = [0]
+        button.trigger('clicks', None, None)
+        result = source.selected.indices
+        expect = [1]
+        self.assertEqual(expect, result)
 
 
 class TestPartial(unittest.TestCase):
@@ -96,5 +160,5 @@ class TestTicker(unittest.TestCase):
         self.check(108, [0, 48, 96])
 
     def check(self, max_hour, expect):
-        result = main.ticks(max_hour)
+        result = chronometer.ticks(max_hour)
         self.assertEqual(expect, result)
