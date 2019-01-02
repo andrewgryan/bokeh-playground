@@ -79,6 +79,42 @@ def main():
             ys=[[0.55, 1.55]],
             line_color="black")
 
+    # Second diagram
+    yc = -3
+    x = [4.5, 9, 11]
+    y = np.full(len(x), yc)
+    source = bokeh.models.ColumnDataSource(dict(
+        width=[12],
+        height=[1],
+        x=[6],
+        y=[yc]))
+    figure.rect(
+            width="width",
+            height="height",
+            x="x",
+            y="y",
+            fill_alpha=0.,
+            line_color="black",
+            source=source)
+    figure.rect(
+            width=[5, 1.5, 1.5],
+            height=[1, 1, 1],
+            x=x,
+            y=y,
+            fill_color=["blue", "red", "red"],
+            fill_alpha=0.5,
+            line_color="black")
+    source = bokeh.models.ColumnDataSource(dict(
+        x=x,
+        y=y,
+        text=["Lorem ipsum", "dolor", "est"]
+        ))
+    text = bokeh.models.Text(x="x", y="y",
+            text="text",
+            text_align="center",
+            text_baseline="middle")
+    figure.add_glyph(source, text)
+
     document = bokeh.plotting.curdoc()
     document.add_root(figure)
 
