@@ -42,7 +42,9 @@ def main():
             x="x",
             y="y",
             text="text",
-            text_font_style="bold")
+            text_font_style="bold",
+            text_align="center",
+            text_baseline="middle")
     figure.add_glyph(source, text)
 
     # Dashed lines
@@ -62,7 +64,10 @@ def main():
         y=np.mean(ys, axis=1),
         text=labels
         ))
-    text = bokeh.models.Text(x="x", y="y", text="text")
+    text = bokeh.models.Text(x="x", y="y",
+            text="text",
+            text_align="center",
+            text_baseline="middle")
     figure.add_glyph(source, text)
 
     # Mutation texts
