@@ -11,12 +11,7 @@ def main():
     # Box positions/widths
     width = np.array([0.1, 3, 0.5, 0.5, 0.25, 0.25, 0.5])
     labels = ["1425bp", "4675bp", "4331bp", "1178bp", "95bp", "17624bp"]
-    x = [0]
-    position = 0
-    gap = 1
-    for w1, w2 in zip(width[:-1], width[1:]):
-        position += (w1 / 2) + gap + (w2 / 2)
-        x.append(position)
+    x = box_x(width)
     y = np.zeros(len(x))
 
     # Boxes
@@ -86,6 +81,18 @@ def main():
 
     document = bokeh.plotting.curdoc()
     document.add_root(figure)
+
+
+def box_x(widths):
+    if len(widths) == 0:
+        return []
+    position = widths[0] / 2
+    gap = 1
+    x = [position]
+    for w1, w2 in zip(widths[:-1], widths[1:]):
+        position += (w1 / 2) + gap + (w2 / 2)
+        x.append(position)
+    return x
 
 
 if __name__.startswith('bk'):
