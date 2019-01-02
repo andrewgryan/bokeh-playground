@@ -107,13 +107,37 @@ def main():
     source = bokeh.models.ColumnDataSource(dict(
         x=x,
         y=y,
-        text=["Lorem ipsum", "dolor", "est"]
+        text=["GATA-N superfamily", "ZnF GATA", "ZnF GATA"]
         ))
     text = bokeh.models.Text(x="x", y="y",
             text="text",
             text_align="center",
             text_baseline="middle")
     figure.add_glyph(source, text)
+
+    xc = 10.25
+    xs = list(xc + np.array([
+        [0, 0],
+        [0.1, 0.1],
+        [0.2, 0.2],
+        [0.3, 0.3],
+    ]))
+    xs.append([4, 4])
+    xs.append([5, 5])
+    xs.append([5.5, 5.5])
+    ys = [
+        [-3.6, -5.4],
+        [-3.6, -5.2],
+        [-3.6, -5.0],
+        [-3.6, -4.8],
+        [-3.6, -5.4],
+        [-3.6, -5.2],
+        [-3.6, -5.0],
+    ]
+    figure.multi_line(
+            xs=xs,
+            ys=ys,
+            line_color="black")
 
     document = bokeh.plotting.curdoc()
     document.add_root(figure)
