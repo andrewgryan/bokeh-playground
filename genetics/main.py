@@ -82,6 +82,7 @@ def main():
     # Second diagram
     yc = -3
     x = [4.5, 9, 11]
+    width = [5, 1.5, 1.5]
     y = np.full(len(x), yc)
     source = bokeh.models.ColumnDataSource(dict(
         width=[12],
@@ -97,13 +98,23 @@ def main():
             line_color="black",
             source=source)
     figure.rect(
-            width=[5, 1.5, 1.5],
+            width=width,
             height=[1, 1, 1],
             x=x,
             y=y,
             fill_color=["blue", "red", "red"],
             fill_alpha=0.5,
             line_color="black")
+
+    source = bokeh.models.ColumnDataSource(dict(
+        x=[2, 7, 8.25, 10.25],
+        y=[-2.5, -2.5, -2.5, -2.5],
+        text=["p.147", "p.389", "p.443", "p.494"]
+        ))
+    text = bokeh.models.Text(x="x", y="y",
+            text="text")
+    figure.add_glyph(source, text)
+
     source = bokeh.models.ColumnDataSource(dict(
         x=x,
         y=y,
