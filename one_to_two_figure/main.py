@@ -32,27 +32,31 @@ def main():
         f.toolbar_location = None
         f.add_tile(tile)
 
+    zs = []
     nx, ny = 10, 10
     x, y = np.meshgrid(
             np.linspace(0, 10, nx),
             np.linspace(0, 10, ny))
-    z = x * y
+    z = np.ma.asarray(y)
+    z[:, ::2] = np.ma.masked
     source_1 = image_source(x, y, z)
+    zs.append(z)
 
-    nx, ny = 10, 10
-    x, y = np.meshgrid(
-            np.linspace(10, 20, nx),
-            np.linspace(0, 10, ny))
-    z = x * y
+    z = np.ma.asarray(y)
+    z[:, 1::2] = np.ma.masked
     source_2 = image_source(x, y, z)
+    zs.append(z)
 
-    low = z.min()
-    high = z.max()
+    low = min([z.min() for z in zs])
+    high = max([z.max() for z in zs])
     color_mapper = bokeh.models.LinearColorMapper(
-        palette=bokeh.palettes.Viridis256,
+        palette=bokeh.palettes.Plasma[256],
         low=low,
-        high=high
+        high=high,
+        nan_color=bokeh.colors.RGB(0, 0, 0, a=0),
     )
+    for f in figures:
+        colorbar(f, color_mapper)
 
     first_glyph = plot_image(first, source_1, color_mapper)
     second_glyph = plot_image(first, source_2, color_mapper)
@@ -62,7 +66,7 @@ def main():
     layout.children = [figures[0]]  # Trick to keep correct sizing modes
 
     button = bokeh.models.Button()
-    button.on_click(toggle(figures, layout))
+    button.on_click(toggle(figures, layout, [second_glyph]))
     document.add_root(layout)
     document.add_root(button)
 
@@ -103,12 +107,16 @@ def colorbar(figure, color_mapper):
     return color_bar
 
 
-def toggle(figures, layout):
+def toggle(figures, layout, glyphs):
     def render():
         if len(layout.children) == 1:
             layout.children = figures
+            for glyph in glyphs:
+                glyph.visible = False
         else:
             layout.children = [figures[0]]
+            for glyph in glyphs:
+                glyph.visible = True
     return render
 
 
