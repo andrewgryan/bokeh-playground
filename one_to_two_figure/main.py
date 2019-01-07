@@ -34,15 +34,17 @@ def main():
 
     zs = []
     nx, ny = 10, 10
-    x, y = np.meshgrid(
+    lons, lats = np.meshgrid(
             np.linspace(0, 10, nx),
             np.linspace(0, 10, ny))
-    z = np.ma.asarray(y)
+    x, y = google_mercator(lons, lats)
+
+    z = np.ma.asarray(lats)
     z[:, ::2] = np.ma.masked
     source_1 = image_source(x, y, z)
     zs.append(z)
 
-    z = np.ma.asarray(y)
+    z = np.ma.asarray(lats)
     z[:, 1::2] = np.ma.masked
     source_2 = image_source(x, y, z)
     zs.append(z)
@@ -67,15 +69,19 @@ def main():
 
     button = bokeh.models.Button()
     button.on_click(toggle(figures, layout, [second_glyph]))
+
     document.add_root(layout)
     document.add_root(button)
 
 
-def image_source(x, y, z):
-    # Map to Google Mercator projection
+def google_mercator(x, y):
     gl = cartopy.crs.Mercator.GOOGLE
     pc = cartopy.crs.PlateCarree()
     x, y, _ = gl.transform_points(pc, x.flatten(), y.flatten()).T
+    return x, y
+
+
+def image_source(x, y, z):
     return bokeh.models.ColumnDataSource({
         "x": [x.min()],
         "y": [y.min()],
