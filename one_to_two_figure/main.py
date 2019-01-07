@@ -39,12 +39,12 @@ def main():
             np.linspace(0, 10, ny))
     x, y = google_mercator(lons, lats)
 
-    z = np.ma.asarray(lats)
+    z = np.ma.arange(nx * ny, dtype=np.float).reshape(nx, ny)
     z[:, ::2] = np.ma.masked
     source_1 = image_source(x, y, z)
     zs.append(z)
 
-    z = np.ma.asarray(lats)
+    z = np.ma.arange(nx * ny, dtype=np.float).reshape(nx, ny)
     z[:, 1::2] = np.ma.masked
     source_2 = image_source(x, y, z)
     zs.append(z)
@@ -108,7 +108,10 @@ def colorbar(figure, color_mapper):
         color_mapper=color_mapper,
         orientation='horizontal',
         background_fill_alpha=0,
-        location='bottom_center')
+        location='bottom_center',
+        major_tick_line_color='black',
+        bar_line_color='black',
+        title='Title')
     figure.add_layout(color_bar, 'center')
     return color_bar
 
