@@ -3,6 +3,7 @@ import bokeh.models
 import bokeh.layouts
 import cartopy
 import numpy as np
+import datetime as dt
 
 
 def main():
@@ -92,22 +93,49 @@ def main():
         return on_change
     name_drop.on_change('value', change_menu(size_drop))
 
-    min_input = bokeh.models.TextInput(value="0", title="Min:")
-    def change(color_mapper, prop):
-        def on_change(attr, old, new):
-            setattr(color_mapper, prop, int(new))
-        return on_change
+    min_input = bokeh.models.TextInput(value=str(low), title="Min:")
     min_input.on_change('value', change(color_mapper, "low"))
 
-    max_input = bokeh.models.TextInput(value="0", title="Max:")
+    max_input = bokeh.models.TextInput(value=str(high), title="Max:")
     max_input.on_change('value', change(color_mapper, "high"))
+
+    # Monitor resize events
+    figure_series = bokeh.plotting.figure(
+            plot_height=100,
+            plot_width=900,
+            x_axis_type='datetime')
+    x_start = bokeh.models.ColumnDataSource({
+        "x": [],
+        "y": []})
+    y_start = bokeh.models.ColumnDataSource({
+        "x": [],
+        "y": []})
+    figure_series.circle(x="x", y="y", source=x_start,
+            fill_color="red",
+            line_color="red")
+    figure_series.circle(x="x", y="y", source=y_start)
+    def zoom(source):
+        def on_change(attr, old, new):
+            source.stream({
+                "x": [dt.datetime.now()],
+                "y": [new]
+            })
+        return on_change
+    figures[0].x_range.on_change('start', zoom(x_start))
+    figures[0].y_range.on_change('start', zoom(y_start))
 
     document.add_root(layout)
     document.add_root(
             bokeh.layouts.column(
-                bokeh.layouts.row(min_input, max_input),
-                bokeh.layouts.row(name_drop, size_drop, button))
-            )
+                figure_series,
+                bokeh.layouts.row(name_drop, size_drop, button),
+                bokeh.layouts.row(min_input, max_input)))
+
+
+def change(color_mapper, prop):
+    def on_change(attr, old, new):
+        setattr(color_mapper, prop, float(new))
+    return on_change
 
 
 class Picker(object):
