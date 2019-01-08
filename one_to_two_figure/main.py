@@ -73,21 +73,37 @@ def main():
     button = bokeh.models.Button()
     button.on_click(toggle(figures, layout, [second_glyph]))
 
-    drop = bokeh.models.Dropdown(menu=[
+    name_drop = bokeh.models.Dropdown(menu=[
         ("Inferno", "Inferno"),
         ("Magma", "Magma"),
         ("Viridis", "Viridis"),
         ("Plasma", "Plasma")])
-    def change_palette(color_mapper):
+    size_drop = bokeh.models.Dropdown(menu=[])
+
+    def change_name(color_mapper):
         def on_change(attr, old, new):
             if hasattr(bokeh.palettes, new):
                 color_mapper.palette = getattr(bokeh.palettes, new)[256]
         return on_change
-    drop.on_change('value', change_palette(color_mapper))
+    name_drop.on_change('value', change_name(color_mapper))
+
+    def change_menu(drop):
+        def on_change(attr, old, new):
+            if hasattr(bokeh.palettes, new):
+                drop.menu = [(str(k), str(k))
+                        for k in getattr(bokeh.palettes, new).keys()]
+        return on_change
+    name_drop.on_change('value', change_menu(size_drop))
+
+    def change_size(color_mapper):
+        def on_change(attr, old, new):
+            print(new)
+        return on_change
+    size_drop.on_change('value', change_size(color_mapper))
 
     document.add_root(layout)
     document.add_root(
-            bokeh.layouts.row(drop, button))
+            bokeh.layouts.row(name_drop, size_drop, button))
 
 
 def google_mercator(x, y):
