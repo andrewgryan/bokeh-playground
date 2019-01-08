@@ -78,10 +78,7 @@ def main():
     button.on_click(toggle(figures, layout, [second_glyph]))
 
     name_drop = bokeh.models.Dropdown(menu=[
-        ("Inferno", "Inferno"),
-        ("Magma", "Magma"),
-        ("Viridis", "Viridis"),
-        ("Plasma", "Plasma")])
+        (k, k) for k in bokeh.palettes.small_palettes.keys()])
     size_drop = bokeh.models.Dropdown(menu=[])
 
     picker = Picker(color_mapper)
@@ -204,7 +201,9 @@ class Picker(object):
 
     def render(self):
         if hasattr(bokeh.palettes, self.name):
-            self.color_mapper.palette = getattr(bokeh.palettes, self.name)[self.size]
+            palettes = getattr(bokeh.palettes, self.name)
+            if self.size in palettes:
+                self.color_mapper.palette = palettes[self.size]
 
 
 def google_mercator(lons, lats):
