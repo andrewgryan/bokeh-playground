@@ -4,6 +4,7 @@ import bokeh.layouts
 import cartopy
 import numpy as np
 import datetime as dt
+from functools import partial
 
 
 def main():
@@ -107,22 +108,30 @@ def main():
     x_start = bokeh.models.ColumnDataSource({
         "x": [],
         "y": []})
-    y_start = bokeh.models.ColumnDataSource({
+    x_start_throttle = bokeh.models.ColumnDataSource({
+        "x": [],
+        "y": []})
+    x_start_debounce = bokeh.models.ColumnDataSource({
         "x": [],
         "y": []})
     figure_series.circle(x="x", y="y", source=x_start,
             fill_color="red",
             line_color="red")
-    figure_series.circle(x="x", y="y", source=y_start)
-    def zoom(source):
+    figure_series.circle(x="x", y="y", source=x_start_throttle,
+            fill_color="purple",
+            line_color="purple")
+    figure_series.circle(x="x", y="y", source=x_start_debounce)
+    def zoom(source, y):
         def on_change(attr, old, new):
+            time = dt.datetime.now()
             source.stream({
-                "x": [dt.datetime.now()],
-                "y": [new]
+                "x": [time],
+                "y": [y]
             })
         return on_change
-    figures[0].x_range.on_change('start', zoom(x_start))
-    figures[0].y_range.on_change('start', zoom(y_start))
+    figures[0].x_range.on_change('start', zoom(x_start, 1))
+    figures[0].x_range.on_change('start', throttle(zoom(x_start_throttle, 2)))
+    figures[0].x_range.on_change('start', debounce(zoom(x_start_debounce, 3)))
 
     document.add_root(layout)
     document.add_root(
@@ -130,6 +139,49 @@ def main():
                 figure_series,
                 bokeh.layouts.row(name_drop, size_drop, button),
                 bokeh.layouts.row(min_input, max_input)))
+
+
+def debounce(f, seconds=1):
+    miliseconds = 1000 * seconds
+    document = bokeh.plotting.curdoc()
+    timeout_callback = None
+    def wrapper(attr, old, new):
+        nonlocal document
+        nonlocal timeout_callback
+        callback = partial(f, attr, old, new)
+        if timeout_callback is not None:
+            try:
+                document.remove_timeout_callback(timeout_callback)
+            except ValueError:
+                pass
+        timeout_callback = document.add_timeout_callback(
+                callback,
+                miliseconds)
+    return wrapper
+
+
+def throttle(f, seconds=1):
+    miliseconds = 1000 * seconds
+    last_time = None
+    document = bokeh.plotting.curdoc()
+    timeout_callback = None
+    def wrapper(attr, old, new):
+        nonlocal document
+        nonlocal timeout_callback
+        nonlocal last_time
+        now = dt.datetime.now()
+        callback = partial(f, attr, old, new)
+        if (last_time is None) or ((now - last_time).total_seconds() > seconds):
+            last_time = now
+            if timeout_callback is not None:
+                try:
+                    document.remove_timeout_callback(timeout_callback)
+                except ValueError:
+                    pass
+            timeout_callback = document.add_timeout_callback(
+                    callback,
+                    miliseconds)
+    return wrapper
 
 
 def change(color_mapper, prop):
