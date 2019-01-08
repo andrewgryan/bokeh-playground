@@ -92,9 +92,22 @@ def main():
         return on_change
     name_drop.on_change('value', change_menu(size_drop))
 
+    min_input = bokeh.models.TextInput(value="0", title="Min:")
+    def change(color_mapper, prop):
+        def on_change(attr, old, new):
+            setattr(color_mapper, prop, int(new))
+        return on_change
+    min_input.on_change('value', change(color_mapper, "low"))
+
+    max_input = bokeh.models.TextInput(value="0", title="Max:")
+    max_input.on_change('value', change(color_mapper, "high"))
+
     document.add_root(layout)
     document.add_root(
-            bokeh.layouts.row(name_drop, size_drop, button))
+            bokeh.layouts.column(
+                bokeh.layouts.row(min_input, max_input),
+                bokeh.layouts.row(name_drop, size_drop, button))
+            )
 
 
 class Picker(object):
