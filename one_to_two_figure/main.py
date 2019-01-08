@@ -100,49 +100,31 @@ def main():
     max_input = bokeh.models.TextInput(value=str(high), title="Max:")
     max_input.on_change('value', change(color_mapper, "high"))
 
-    # Monitor resize events
-    figure_series = bokeh.plotting.figure(
-            plot_height=100,
-            plot_width=900,
-            x_axis_type='datetime')
-    x_start = bokeh.models.ColumnDataSource({
-        "x": [],
-        "y": []})
-    x_start_throttle = bokeh.models.ColumnDataSource({
-        "x": [],
-        "y": []})
-    x_start_debounce = bokeh.models.ColumnDataSource({
-        "x": [],
-        "y": []})
-    figure_series.circle(x="x", y="y", source=x_start,
-            fill_color="red",
-            line_color="red")
-    figure_series.circle(x="x", y="y", source=x_start_throttle,
-            fill_color="purple",
-            line_color="purple")
-    figure_series.circle(x="x", y="y", source=x_start_debounce)
-    def zoom(source, y):
+    def zoom(figure):
+        @debounce
         def on_change(attr, old, new):
-            time = dt.datetime.now()
-            source.stream({
-                "x": [time],
-                "y": [y]
-            })
+            lons, lats = plate_carree(
+                    [figure.x_range.start,
+                     figure.x_range.end],
+                    [figure.y_range.start,
+                     figure.y_range.end])
+            print(dt.datetime.now(), lons, lats)
         return on_change
-    figures[0].x_range.on_change('start', zoom(x_start, 1))
-    figures[0].x_range.on_change('start', throttle(zoom(x_start_throttle, 2)))
-    figures[0].x_range.on_change('start', debounce(zoom(x_start_debounce, 3)))
+    figure = figures[0]
+    on_change = zoom(figure)
+    figure.x_range.on_change('start', on_change)
+    figure.x_range.on_change('end', on_change)
+    figure.y_range.on_change('start', on_change)
+    figure.y_range.on_change('end', on_change)
 
     document.add_root(layout)
     document.add_root(
             bokeh.layouts.column(
-                figure_series,
                 bokeh.layouts.row(name_drop, size_drop, button),
                 bokeh.layouts.row(min_input, max_input)))
 
 
-def debounce(f, seconds=1):
-    miliseconds = 1000 * seconds
+def debounce(f, miliseconds=200):
     document = bokeh.plotting.curdoc()
     timeout_callback = None
     def wrapper(attr, old, new):
@@ -209,11 +191,18 @@ class Picker(object):
             self.color_mapper.palette = getattr(bokeh.palettes, self.name)[self.size]
 
 
-def google_mercator(x, y):
+def google_mercator(lons, lats):
     gl = cartopy.crs.Mercator.GOOGLE
     pc = cartopy.crs.PlateCarree()
-    x, y, _ = gl.transform_points(pc, flatten(x), flatten(y)).T
+    x, y, _ = gl.transform_points(pc, flatten(lons), flatten(lats)).T
     return x, y
+
+
+def plate_carree(x, y):
+    gl = cartopy.crs.Mercator.GOOGLE
+    pc = cartopy.crs.PlateCarree()
+    lons, lats, _ = pc.transform_points(gl, flatten(x), flatten(y)).T
+    return lons, lats
 
 
 def flatten(a):
