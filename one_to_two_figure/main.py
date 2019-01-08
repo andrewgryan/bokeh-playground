@@ -78,12 +78,19 @@ def main():
     button.on_click(toggle(figures, layout, [second_glyph]))
 
     name_drop = bokeh.models.Dropdown(menu=[
-        (k, k) for k in bokeh.palettes.small_palettes.keys()])
+        (k, k) for k in bokeh.palettes.mpl.keys()])
     size_drop = bokeh.models.Dropdown(menu=[])
+
+    def label(drop):
+        def on_change(attr, old, new):
+            drop.label = new
+        return on_change
 
     picker = Picker(color_mapper)
     name_drop.on_change('value', picker.change_name)
+    name_drop.on_change('value', label(name_drop))
     size_drop.on_change('value', picker.change_size)
+    size_drop.on_change('value', label(size_drop))
 
     def change_menu(drop):
         def on_change(attr, old, new):
@@ -95,9 +102,11 @@ def main():
 
     min_input = bokeh.models.TextInput(value=str(low), title="Min:")
     min_input.on_change('value', change(color_mapper, "low"))
+    color_mapper.on_change('low', change(min_input, "value", str))
 
     max_input = bokeh.models.TextInput(value=str(high), title="Max:")
     max_input.on_change('value', change(color_mapper, "high"))
+    color_mapper.on_change('high', change(max_input, "value", str))
 
     def zoom(figure, color_mapper, lons, lats, zs):
         @debounce
@@ -179,9 +188,9 @@ def throttle(f, seconds=1):
     return wrapper
 
 
-def change(color_mapper, prop):
+def change(widget, prop, dtype=float):
     def on_change(attr, old, new):
-        setattr(color_mapper, prop, float(new))
+        setattr(widget, prop, dtype(new))
     return on_change
 
 
