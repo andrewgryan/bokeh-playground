@@ -44,12 +44,12 @@ def main():
             np.linspace(0, 10, ny))
     x, y = google_mercator(lons, lats)
 
-    z = np.ma.arange(nx * ny, dtype=np.float).reshape(nx, ny)
+    z = np.ma.arange(nx * ny, dtype=np.float).reshape(nx, ny).T
     z[:, ::2] = np.ma.masked
     source_1 = image_source(x, y, z)
     zs.append(z)
 
-    z = np.ma.arange(nx * ny, dtype=np.float).reshape(nx, ny)
+    z = np.ma.arange(nx * ny, dtype=np.float).reshape(nx, ny).T
     z[:, 1::2] = np.ma.masked
     source_2 = image_source(x, y, z)
     zs.append(z)
@@ -59,7 +59,9 @@ def main():
     color_mapper = bokeh.models.LinearColorMapper(
         palette=bokeh.palettes.Plasma[256],
         low=low,
+        low_color="white",
         high=high,
+        high_color="white",
         nan_color=bokeh.colors.RGB(0, 0, 0, a=0),
     )
     for f in figures:
@@ -100,30 +102,32 @@ def main():
     max_input = bokeh.models.TextInput(value=str(high), title="Max:")
     max_input.on_change('value', change(color_mapper, "high"))
 
-    def zoom(figure, color_mapper, x, y, zs):
+    def zoom(figure, color_mapper, lons, lats, zs):
         @debounce
         def on_change(attr, old, new):
-            lons, lats = plate_carree(
+            lon_range, lat_range = plate_carree(
                     [figure.x_range.start,
                      figure.x_range.end],
                     [figure.y_range.start,
                      figure.y_range.end])
-            print(dt.datetime.now(), lons, lats)
-            print(x)
+            lon_start, lon_end = lon_range
+            lat_start, lat_end = lat_range
+            dlon = lons[0, 1] - lons[0, 0]
+            dlat = lats[1, 0] - lats[0, 0]
             pts = np.where(
-                    (x >= figure.x_range.start) &
-                    (x <= figure.x_range.end) &
-                    (y >= figure.y_range.start) &
-                    (y <= figure.y_range.end))
+                    ((lons + dlon) >= lon_start) &
+                    ((lons - dlon) <= lon_end) &
+                    ((lats + dlat) >= lat_start) &
+                    ((lats - dlat) <= lat_end))
             if len(pts[0]) > 0:
-                low = min(flatten(z)[pts].min() for z in zs)
-                high = max(flatten(z)[pts].max() for z in zs)
+                low = min(z[pts].min() for z in zs)
+                high = max(z[pts].max() for z in zs)
                 print(low, high)
                 color_mapper.low = low
                 color_mapper.high = high
         return on_change
     figure = figures[0]
-    on_change = zoom(figure, color_mapper, x, y, zs)
+    on_change = zoom(figure, color_mapper, lons, lats, zs)
     figure.x_range.on_change('start', on_change)
     figure.x_range.on_change('end', on_change)
     figure.y_range.on_change('start', on_change)
