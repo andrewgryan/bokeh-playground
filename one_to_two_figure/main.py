@@ -80,12 +80,9 @@ def main():
         ("Plasma", "Plasma")])
     size_drop = bokeh.models.Dropdown(menu=[])
 
-    def change_name(color_mapper):
-        def on_change(attr, old, new):
-            if hasattr(bokeh.palettes, new):
-                color_mapper.palette = getattr(bokeh.palettes, new)[256]
-        return on_change
-    name_drop.on_change('value', change_name(color_mapper))
+    picker = Picker(color_mapper)
+    name_drop.on_change('value', picker.change_name)
+    size_drop.on_change('value', picker.change_size)
 
     def change_menu(drop):
         def on_change(attr, old, new):
@@ -95,15 +92,28 @@ def main():
         return on_change
     name_drop.on_change('value', change_menu(size_drop))
 
-    def change_size(color_mapper):
-        def on_change(attr, old, new):
-            print(new)
-        return on_change
-    size_drop.on_change('value', change_size(color_mapper))
-
     document.add_root(layout)
     document.add_root(
             bokeh.layouts.row(name_drop, size_drop, button))
+
+
+class Picker(object):
+    def __init__(self, color_mapper):
+        self.color_mapper = color_mapper
+        self.name = "Viridis"
+        self.size = 256
+
+    def change_name(self, attr, old, new):
+        self.name = new
+        self.render()
+
+    def change_size(self, attr, old, new):
+        self.size = int(new)
+        self.render()
+
+    def render(self):
+        if hasattr(bokeh.palettes, self.name):
+            self.color_mapper.palette = getattr(bokeh.palettes, self.name)[self.size]
 
 
 def google_mercator(x, y):
