@@ -11,9 +11,11 @@ def main():
         url='http://c.tile.openstreetmap.org/{Z}/{X}/{Y}.png',
         attribution="Attribution text goes here"
     )
+
+    x_range, y_range = google_mercator([-20, 20], [-5, 15])
     first = bokeh.plotting.figure(
-        x_range=(-2000000, 6000000),
-        y_range=(-1000000, 7000000),
+        x_range=x_range,
+        y_range=y_range,
         x_axis_type="mercator",
         y_axis_type="mercator",
         active_scroll="wheel_zoom")
@@ -23,6 +25,7 @@ def main():
         y_axis_type="mercator",
         x_range=first.x_range,
         y_range=first.y_range)
+    second.yaxis.visible = False
     figures = [
      first,
      second
@@ -70,15 +73,34 @@ def main():
     button = bokeh.models.Button()
     button.on_click(toggle(figures, layout, [second_glyph]))
 
+    drop = bokeh.models.Dropdown(menu=[
+        ("Inferno", "Inferno"),
+        ("Magma", "Magma"),
+        ("Viridis", "Viridis"),
+        ("Plasma", "Plasma")])
+    def change_palette(color_mapper):
+        def on_change(attr, old, new):
+            if hasattr(bokeh.palettes, new):
+                color_mapper.palette = getattr(bokeh.palettes, new)[256]
+        return on_change
+    drop.on_change('value', change_palette(color_mapper))
+
     document.add_root(layout)
-    document.add_root(button)
+    document.add_root(
+            bokeh.layouts.row(drop, button))
 
 
 def google_mercator(x, y):
     gl = cartopy.crs.Mercator.GOOGLE
     pc = cartopy.crs.PlateCarree()
-    x, y, _ = gl.transform_points(pc, x.flatten(), y.flatten()).T
+    x, y, _ = gl.transform_points(pc, flatten(x), flatten(y)).T
     return x, y
+
+
+def flatten(a):
+    if isinstance(a, list):
+        a = np.array(a, dtype=np.float)
+    return a.flatten()
 
 
 def image_source(x, y, z):
