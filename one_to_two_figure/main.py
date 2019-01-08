@@ -100,7 +100,7 @@ def main():
     max_input = bokeh.models.TextInput(value=str(high), title="Max:")
     max_input.on_change('value', change(color_mapper, "high"))
 
-    def zoom(figure):
+    def zoom(figure, color_mapper, x, y, zs):
         @debounce
         def on_change(attr, old, new):
             lons, lats = plate_carree(
@@ -109,9 +109,21 @@ def main():
                     [figure.y_range.start,
                      figure.y_range.end])
             print(dt.datetime.now(), lons, lats)
+            print(x)
+            pts = np.where(
+                    (x >= figure.x_range.start) &
+                    (x <= figure.x_range.end) &
+                    (y >= figure.y_range.start) &
+                    (y <= figure.y_range.end))
+            if len(pts[0]) > 0:
+                low = min(flatten(z)[pts].min() for z in zs)
+                high = max(flatten(z)[pts].max() for z in zs)
+                print(low, high)
+                color_mapper.low = low
+                color_mapper.high = high
         return on_change
     figure = figures[0]
-    on_change = zoom(figure)
+    on_change = zoom(figure, color_mapper, x, y, zs)
     figure.x_range.on_change('start', on_change)
     figure.x_range.on_change('end', on_change)
     figure.y_range.on_change('start', on_change)
