@@ -68,6 +68,10 @@ def main():
     check_box.on_change('active', view.on_change_quality)
     widgets.append(check_box)
 
+    radio_group = bokeh.models.RadioGroup(labels=view.parameters)
+    radio_group.on_change('active', view.on_change_parameter)
+    widgets.append(radio_group)
+
     radio_group = bokeh.models.RadioGroup(labels=view.fields)
     radio_group.on_change('active', view.on_change_field)
     widgets.append(radio_group)
@@ -107,19 +111,10 @@ def main():
     document.add_root(second_figure)
     document.add_root(controls)
 
-def categorise(paths):
-    pass
-
-class Line(object):
-    def __init__(self, models):
-        self.models = models
-
-    def render(self):
-        pass
-
 
 class View(object):
     def __init__(self, paths, source, color_mapper, figure):
+        self.parameter = None
         self.model = None
         self.field = None
         self.paths = paths
@@ -127,14 +122,20 @@ class View(object):
         self.color_mapper = color_mapper
         self.figure = figure
         self.store = {}
+        models = []
+        parameters = []
         for path in self.paths:
             with netCDF4.Dataset(path) as dataset:
-                key = " ".join([
+                parameter = dataset.obs_type
+                model = " ".join([
                     dataset.system,
                     dataset.version,
                     dataset.configuration])
-                self.store[key] = path
-        self.models = list(sorted(self.store.keys()))
+                self.store[(parameter, model)] = path
+                models.append(model)
+                parameters.append(parameter)
+        self.parameters = list(sorted(set(parameters)))
+        self.models = list(sorted(set(models)))
         self.fields = ["observation", "forecast", "forecast - observation"]
         self.quality_control = False
 
@@ -150,12 +151,18 @@ class View(object):
         self.model = self.models[new]
         self.render()
 
+    def on_change_parameter(self, attr, old, new):
+        self.parameter = self.parameters[new]
+        self.render()
+
     def render(self):
         if self.field is None:
             return
+        if self.parameter is None:
+            return
         if self.model is None:
             return
-        path = self.store[self.model]
+        path = self.store[(self.parameter, self.model)]
         print(path, self.field)
         with netCDF4.Dataset(path) as dataset:
             lats = dataset.variables["latitude"][:]
