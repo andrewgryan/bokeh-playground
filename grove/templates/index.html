@@ -1,0 +1,31 @@
+{% from macros import embed %}
+{% extends base %}
+{% block preamble %}
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+    }
+    .hello-world {
+        position: absolute;
+        left: 0;
+        top: 0;
+        z-index: 2;
+        min-width: 2%;
+        width: auto;
+        height: 100%;
+    }
+</style>
+{% endblock %}
+{% block contents %}
+<div class="hello-world">
+    {% for doc in docs %}
+        {% for root in doc.roots %}
+            {% if root.name == "hello" %}
+                {{ embed(root) | indent(10) }}
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+</div>
+    {{ super() }}
+{% endblock %}
