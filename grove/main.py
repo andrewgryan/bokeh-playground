@@ -37,12 +37,29 @@ def main():
     )
     figure.add_tile(tile)
 
+    box_select_tool = bokeh.models.BoxSelectTool()
+    figure.add_tools(box_select_tool)
+    figure.toolbar.active_drag = box_select_tool
+
     # Plot Class 4 positions
     source = bokeh.models.ColumnDataSource({
         "x": [],
         "y": [],
         "v": []
     })
+    circle_source = bokeh.models.ColumnDataSource({
+        "x": [],
+        "y": []})
+
+    def callback(attr, old, new):
+        v = np.ma.copy(source.data["v"])
+        x = np.argsort(np.argsort(v))[new]
+        y = v[new]
+        circle_source.data = {
+            "x": x,
+            "y": y
+        }
+    source.selected.on_change("indices", callback)
     color_mapper = bokeh.models.LinearColorMapper(
         palette=bokeh.palettes.Plasma[256],
         nan_color=bokeh.colors.RGB(0, 0, 0, a=0),
@@ -90,6 +107,7 @@ def main():
         "x": [],
         "y": []})
     second_figure.line(x="x", y="y", source=line_source)
+    second_figure.circle(x="x", y="y", source=circle_source)
     second_figure.toolbar.logo = None
     second_figure.toolbar_location = None
     second_figure.min_border_left = 20
@@ -108,8 +126,8 @@ def main():
     document = bokeh.plotting.curdoc()
     document.title = "Geo-relational ocean verification exploration tool"
     document.add_root(figure)
-    document.add_root(second_figure)
     document.add_root(controls)
+    document.add_root(second_figure)
 
 
 class View(object):
@@ -136,7 +154,11 @@ class View(object):
                 parameters.append(parameter)
         self.parameters = list(sorted(set(parameters)))
         self.models = list(sorted(set(models)))
-        self.fields = ["observation", "forecast", "forecast - observation"]
+        self.fields = [
+            "observation",
+            "forecast",
+            "forecast - observation",
+            "|forecast - observation|"]
         self.quality_control = False
 
     def on_change_field(self, attr, old, new):
@@ -171,6 +193,10 @@ class View(object):
                 f = dataset.variables["forecast"][:, 0, 0, 0]
                 o = dataset.variables["observation"][:, 0, 0]
                 v = f - o
+            elif self.field == "|forecast - observation|":
+                f = dataset.variables["forecast"][:, 0, 0, 0]
+                o = dataset.variables["observation"][:, 0, 0]
+                v = np.ma.abs(f - o)
             elif self.field == "forecast":
                 v = dataset.variables["forecast"][:, 0, 0, 0]
             elif self.field == "observation":
