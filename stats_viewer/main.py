@@ -4,15 +4,20 @@ import bokeh.layouts
 import netCDF4
 import numpy as np
 import glob
+import os
 
 
-STATS_FILES = sorted(glob.glob("/scratch/oceanver/class4/copernicus/*/stats/product_quality_*.nc"))
+if "STATS_FILES" in os.environ:
+    STATS_FILES = os.getenv("STATS_FILES").split()
+else:
+    STATS_FILES = sorted(glob.glob("/scratch/oceanver/class4/copernicus/*/stats/product_quality_*.nc"))
 
 
 def main():
     figure = bokeh.plotting.figure(
+        tools='pan,xwheel_zoom,box_zoom,save,reset,help',
         x_axis_type="datetime",
-        plot_width=1200,
+        plot_width=960,
         plot_height=300)
     figure.toolbar_location = "below"
     hover_tool = bokeh.models.HoverTool(
@@ -21,6 +26,7 @@ def main():
             ('value', '@y')
         ],
         formatters={'x': 'datetime'},
+        mode="vline"
     )
     figure.add_tools(hover_tool)
     source = bokeh.models.ColumnDataSource({
@@ -28,17 +34,28 @@ def main():
         "y": []
     })
     figure.line(x="x", y="y", source=source)
-    figure.circle(x="x", y="y", source=source)
+    figure.circle(x="x", y="y", source=source,
+        hover_fill_color="red",
+        hover_line_color="red")
+    label = bokeh.models.Label(
+        x=figure.plot_width / 2,
+        y=figure.plot_height / 3,
+        text="",
+        x_units="screen",
+        y_units="screen")
+    figure.add_layout(label)
 
     dropdowns = []
 
     model = Model()
 
-    view = View(source)
+    view = View(source, label)
     model.register(view)
 
     title = Title(figure)
     model.register(title)
+
+    default_menu = [("Select PRODUCT", "")]
 
     items = find_attributes(STATS_FILES, "product")
     menu = [(item.strip(), item) for item in items]
@@ -46,28 +63,32 @@ def main():
     dropdown.on_click(model.on_experiment)
     dropdowns.append(dropdown)
 
-    items = find_variables(STATS_FILES)
-    menu = [(item.strip(), item) for item in items]
-    dropdown = bokeh.models.Dropdown(menu=menu, label="Variables")
+    dropdown = bokeh.models.Dropdown(
+        menu=default_menu,
+        label="Variables")
+    model.register(Variables(dropdown))
     dropdown.on_click(model.on_variable)
     dropdowns.append(dropdown)
 
-    items = find_names(STATS_FILES, "metric_names")
-    menu = [(item.strip(), item) for item in items]
-    dropdown = bokeh.models.Dropdown(menu=menu, label="Metrics")
+    dropdown = bokeh.models.Dropdown(
+        menu=default_menu,
+        label="Metrics")
+    model.register(Names(dropdown, "metric_names"))
     dropdown.on_click(model.on_metric)
     dropdowns.append(dropdown)
 
-    items = find_names(STATS_FILES, "area_names")
-    menu = [(item.strip(), item) for item in items]
-    dropdown = bokeh.models.Dropdown(menu=menu, label="Regions")
+    dropdown = bokeh.models.Dropdown(
+        menu=default_menu,
+        label="Regions")
+    model.register(Names(dropdown, "area_names"))
     dropdown.on_click(model.on_region)
     dropdowns.append(dropdown)
 
-    row = bokeh.layouts.row(dropdowns)
-    root = bokeh.layouts.column(row, figure)
+    row = bokeh.layouts.row(dropdowns, sizing_mode="scale_width")
     document = bokeh.plotting.curdoc()
-    document.add_root(root)
+    document.title = "CMEMS Product quality statistics"
+    document.add_root(figure)
+    document.add_root(row)
 
 
 class Model(object):
@@ -102,9 +123,36 @@ class Model(object):
             subscriber.notify(self)
 
 
+class Variables(object):
+    def __init__(self, dropdown):
+        self.dropdown = dropdown
+
+    def notify(self, model):
+        if model.experiment is None:
+            return
+        items = find_variables(select(STATS_FILES, "product", model.experiment))
+        menu = [(item.strip(), item) for item in items]
+        self.dropdown.menu = menu
+
+
+class Names(object):
+    def __init__(self, dropdown, variable):
+        self.dropdown = dropdown
+        self.variable = variable
+
+    def notify(self, model):
+        if model.experiment is None:
+            return
+        items = find_names(select(STATS_FILES, "product", model.experiment),
+                           self.variable)
+        menu = [(item.strip(), item) for item in items]
+        self.dropdown.menu = menu
+
+
 class View(object):
-    def __init__(self, source):
+    def __init__(self, source, label):
         self.source = source
+        self.label = label
 
     def notify(self, model):
         if self.valid(model):
@@ -117,14 +165,22 @@ class View(object):
         return True
 
     def render(self, model):
-        x, y = read(select(STATS_FILES, "product", model.experiment),
-                    model.variable,
-                    model.metric,
-                    model.region)
-        self.source.data = {
-            "x": x,
-            "y": y
-        }
+        try:
+            x, y = read(select(STATS_FILES, "product", model.experiment),
+                        model.variable,
+                        model.metric,
+                        model.region)
+            self.source.data = {
+                "x": x,
+                "y": y
+            }
+            self.label.text = ""
+        except (KeyError, ValueError):
+            self.source.data = {
+                "x": [],
+                "y": []
+            }
+            self.label.text = "Invalid menu combination"
 
 
 class Title(object):
@@ -186,6 +242,15 @@ def find_variables(paths):
                     if variable not in variables:
                         variables.append(variable)
     return variables
+
+
+def read_forecasts(dataset):
+    return dataset.variables["forecasts"][:]
+
+
+def read_forecast_names(dataset):
+    var = dataset.variables["forecast_names"]
+    return netCDF4.chartostring(var[:])
 
 
 def select(paths, attr, value):
