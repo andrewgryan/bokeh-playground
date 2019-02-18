@@ -19,7 +19,7 @@ def main():
         x_axis_type="datetime",
         plot_width=960,
         plot_height=300)
-    figure.toolbar_location = "below"
+    figure.toolbar_location = "above"
     hover_tool = bokeh.models.HoverTool(
         tooltips=[
             ('date', '@x{%F}'),
@@ -84,11 +84,90 @@ def main():
     dropdown.on_click(model.on_region)
     dropdowns.append(dropdown)
 
+    profile_figure = bokeh.plotting.figure()
+    profile_figure.y_range.flipped = True
+    profile_figure.toolbar_location = "below"
+    source = bokeh.models.ColumnDataSource({
+        "x": [],
+        "y": []
+    })
+    profile_figure.line(x="x", y="y", source=source)
+    profile_figure.circle(x="x", y="y", source=source)
+    model.register(Profile(source))
+
+    leadtime_figure = bokeh.plotting.figure()
+    leadtime_figure.toolbar_location = "below"
+    source = bokeh.models.ColumnDataSource({
+        "x": [],
+        "y": []
+    })
+    leadtime_figure.line(x="x", y="y", source=source)
+    leadtime_figure.circle(x="x", y="y", source=source)
+    model.register(Leadtime(source))
+
     row = bokeh.layouts.row(dropdowns, sizing_mode="scale_width")
     document = bokeh.plotting.curdoc()
     document.title = "CMEMS Product quality statistics"
-    document.add_root(figure)
     document.add_root(row)
+    document.add_root(figure)
+    document.add_root(bokeh.layouts.row(
+        profile_figure,
+        leadtime_figure,
+        sizing_mode="scale_width"))
+
+
+class Leadtime(object):
+    def __init__(self, source):
+        self.source = source
+
+    def notify(self, model):
+        if model.valid():
+            self.render(model)
+
+    def render(self, model):
+        for path in STATS_FILES:
+            with netCDF4.Dataset(path) as dataset:
+                mi = index(dataset.variables["metric_names"][:], model.metric)
+                ai = index(dataset.variables["area_names"][:], model.region)
+                names = np.char.strip(
+                    netCDF4.chartostring(
+                        dataset.variables["forecast_names"][:]))
+                fi = names == "forecast"
+                y = dataset.variables[model.variable][:, fi, :, mi, ai]
+                y = y.mean(axis=(0, 2))
+                x = dataset.variables["forecasts"][fi]
+                self.source.data = {
+                    "x": x,
+                    "y": y
+                }
+            break
+
+
+class Profile(object):
+    def __init__(self, source):
+        self.source = source
+
+    def notify(self, model):
+        if model.valid():
+            self.render(model)
+
+    def render(self, model):
+        for path in STATS_FILES:
+            with netCDF4.Dataset(path) as dataset:
+                var = dataset.variables[model.variable]
+                if "surface" in var.dimensions:
+                    y = [0]
+                else:
+                    y = dataset.variables["depths"][:]
+                mi = index(dataset.variables["metric_names"][:], model.metric)
+                ai = index(dataset.variables["area_names"][:], model.region)
+                x = var[:, 0, :, mi, ai]
+                x = x.mean(axis=0)
+                self.source.data = {
+                    "x": x,
+                    "y": y
+                }
+            break
 
 
 class Model(object):
@@ -117,6 +196,12 @@ class Model(object):
     def on_region(self, value):
         self.region = value
         self.notify()
+
+    def valid(self):
+        for attr in ["experiment", "metric", "variable", "region"]:
+            if getattr(self, attr) is None:
+                return False
+        return True
 
     def notify(self):
         for subscriber in self.subscribers:
@@ -155,14 +240,8 @@ class View(object):
         self.label = label
 
     def notify(self, model):
-        if self.valid(model):
+        if model.valid():
             self.render(model)
-
-    def valid(self, model):
-        for attr in ["experiment", "metric", "variable", "region"]:
-            if getattr(model, attr) is None:
-                return False
-        return True
 
     def render(self, model):
         try:

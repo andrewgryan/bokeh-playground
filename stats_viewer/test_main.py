@@ -29,3 +29,8 @@ class TestStatsViewer(unittest.TestCase):
             result = main.read_forecast_names(dataset).astype("S64")
             expect = forecast_names
             np.testing.assert_array_equal(expect, result)
+
+
+class TestProfileView(unittest.TestCase):
+    def test_(self):
+        pass
