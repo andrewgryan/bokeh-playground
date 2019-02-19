@@ -13,6 +13,29 @@ else:
     STATS_FILES = sorted(glob.glob("/scratch/oceanver/class4/copernicus/*/stats/product_quality_*.nc"))
 
 
+class Observable(object):
+    def __init__(self):
+        self.subscribers = []
+
+    def register(self, subscriber):
+        self.subscribers.append(subscriber)
+
+    def notify(self, message):
+        for subscriber in self.subscribers:
+            subscriber.update(message)
+
+
+class TimePicker(Observable):
+    def __init__(self, source):
+        self.source = source
+        super().__init__()
+
+    def on_selection_change(self, attr, old, new):
+        times = self.source.data['x'][new]
+        print(times, self.subscribers)
+        self.notify(times)
+
+
 def main():
     figure = bokeh.plotting.figure(
         tools='pan,xwheel_zoom,box_zoom,save,reset,help',
@@ -33,10 +56,18 @@ def main():
         "x": [],
         "y": []
     })
+
+    picker = TimePicker(source)
+    source.selected.on_change("indices", picker.on_selection_change)
+
     figure.line(x="x", y="y", source=source)
-    figure.circle(x="x", y="y", source=source,
+    circles = figure.circle(
+        x="x", y="y", source=source,
         hover_fill_color="red",
         hover_line_color="red")
+    circles.selection_glyph = bokeh.models.Square(
+        fill_color="red",
+        line_color="red")
     label = bokeh.models.Label(
         x=figure.plot_width / 2,
         y=figure.plot_height / 3,
@@ -45,9 +76,13 @@ def main():
         y_units="screen")
     figure.add_layout(label)
 
+    tap_tool = bokeh.models.TapTool()
+    figure.add_tools(tap_tool)
+
     dropdowns = []
 
     model = Model()
+    picker.register(model)
 
     view = View(source, label)
     model.register(view)
@@ -85,15 +120,16 @@ def main():
     dropdowns.append(dropdown)
 
     profile_figure = bokeh.plotting.figure()
-    profile_figure.y_range.flipped = True
     profile_figure.toolbar_location = "below"
-    source = bokeh.models.ColumnDataSource({
-        "x": [],
-        "y": []
-    })
-    profile_figure.line(x="x", y="y", source=source)
-    profile_figure.circle(x="x", y="y", source=source)
-    model.register(Profile(source))
+
+    profile = Profile(figure=profile_figure)
+    model.register(profile)
+
+    selection_profile = Profile(figure=profile_figure,
+                                line_color="red",
+                                fill_color="red",
+                                select_times=True)
+    model.register(selection_profile)
 
     leadtime_figure = bokeh.plotting.figure()
     leadtime_figure.toolbar_location = "below"
@@ -120,7 +156,7 @@ class Leadtime(object):
     def __init__(self, source):
         self.source = source
 
-    def notify(self, model):
+    def update(self, model):
         if model.valid():
             self.render(model)
 
@@ -144,24 +180,67 @@ class Leadtime(object):
 
 
 class Profile(object):
-    def __init__(self, source):
+    def __init__(self, source=None, figure=None,
+                 line_color=None,
+                 fill_color=None,
+                 select_times=False):
+        self.select_times = select_times
+        if source is None:
+            source = bokeh.models.ColumnDataSource({
+                "x": [],
+                "y": []
+            })
         self.source = source
+        if figure is None:
+            figure = bokeh.plotting.figure()
+        self.figure = figure
+        self.figure.y_range.flipped = True
+        self.figure.line(x="x", y="y", source=source, line_color=line_color)
+        self.figure.circle(x="x", y="y", source=source, fill_color=fill_color)
 
-    def notify(self, model):
-        if model.valid():
-            self.render(model)
+    def update(self, model):
+        if self.select_times:
+            if all([getattr(model, attr) is not None for attr in [
+                    "times",
+                    "variable",
+                    "metric",
+                    "region"]]):
+                self.render(
+                    model.variable,
+                    model.metric,
+                    model.region,
+                    times=model.times)
+        else:
+            if model.valid():
+                self.render(
+                    model.variable,
+                    model.metric,
+                    model.region)
 
-    def render(self, model):
+    def render(self, variable, metric, region, times=None):
         for path in STATS_FILES:
             with netCDF4.Dataset(path) as dataset:
-                var = dataset.variables[model.variable]
+                var = dataset.variables[variable]
                 if "surface" in var.dimensions:
                     y = [0]
                 else:
                     y = dataset.variables["depths"][:]
-                mi = index(dataset.variables["metric_names"][:], model.metric)
-                ai = index(dataset.variables["area_names"][:], model.region)
-                x = var[:, 0, :, mi, ai]
+                mi = index(dataset.variables["metric_names"][:], metric)
+                ai = index(dataset.variables["area_names"][:], region)
+                if times is None:
+                    ti = slice(None, None)
+                else:
+                    time_var = dataset.variables["time"]
+                    dataset_times = netCDF4.num2date(
+                        time_var[:],
+                        units=time_var.units)
+                    masks = [dataset_times == t for t in times]
+                    if len(masks) > 1:
+                        ti = np.logical_or(*masks)
+                    else:
+                        ti = masks[0]
+                    print("render", ti, var[:].shape)
+                x = var[ti, 0, :, mi, ai]
                 x = x.mean(axis=0)
                 self.source.data = {
                     "x": x,
@@ -170,32 +249,35 @@ class Profile(object):
             break
 
 
-class Model(object):
+class Model(Observable):
     def __init__(self):
         self.experiment = None
         self.metric = None
         self.variable = None
         self.region = None
-        self.subscribers = []
-
-    def register(self, subscriber):
-        self.subscribers.append(subscriber)
+        self.times = None
+        super().__init__()
 
     def on_experiment(self, value):
         self.experiment = value
-        self.notify()
+        self.notify(self)
 
     def on_metric(self, value):
         self.metric = value
-        self.notify()
+        self.notify(self)
 
     def on_variable(self, value):
         self.variable = value
-        self.notify()
+        self.notify(self)
 
     def on_region(self, value):
         self.region = value
-        self.notify()
+        self.notify(self)
+
+    def update(self, times):
+        print("update", times)
+        self.times = times
+        self.notify(self)
 
     def valid(self):
         for attr in ["experiment", "metric", "variable", "region"]:
@@ -203,16 +285,12 @@ class Model(object):
                 return False
         return True
 
-    def notify(self):
-        for subscriber in self.subscribers:
-            subscriber.notify(self)
-
 
 class Variables(object):
     def __init__(self, dropdown):
         self.dropdown = dropdown
 
-    def notify(self, model):
+    def update(self, model):
         if model.experiment is None:
             return
         items = find_variables(select(STATS_FILES, "product", model.experiment))
@@ -225,7 +303,7 @@ class Names(object):
         self.dropdown = dropdown
         self.variable = variable
 
-    def notify(self, model):
+    def update(self, model):
         if model.experiment is None:
             return
         items = find_names(select(STATS_FILES, "product", model.experiment),
@@ -239,7 +317,7 @@ class View(object):
         self.source = source
         self.label = label
 
-    def notify(self, model):
+    def update(self, model):
         if model.valid():
             self.render(model)
 
@@ -270,7 +348,7 @@ class Title(object):
         self.figure.add_layout(self.suptitle, "above")
         self.figure.add_layout(self.title, "above")
 
-    def notify(self, model):
+    def update(self, model):
         self.render(model)
 
     def render(self, model):

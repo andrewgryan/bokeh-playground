@@ -31,6 +31,6 @@ class TestStatsViewer(unittest.TestCase):
             np.testing.assert_array_equal(expect, result)
 
 
-class TestProfileView(unittest.TestCase):
-    def test_(self):
-        pass
+class TestProfile(unittest.TestCase):
+    def test_render_given_times(self):
+        profile = main.Profile()
