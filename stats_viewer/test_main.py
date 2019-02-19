@@ -1,5 +1,6 @@
 # pylint: disable=missing-docstring, invalid-name
 import unittest
+import datetime as dt
 import netCDF4
 import numpy as np
 import main
@@ -34,3 +35,53 @@ class TestStatsViewer(unittest.TestCase):
 class TestProfile(unittest.TestCase):
     def test_render_given_times(self):
         profile = main.Profile()
+
+    def test_time_mask(self):
+        time_axis = [dt.datetime(2018, 1, 1)]
+        times = [dt.datetime(2018, 1, 1)]
+        result = main.time_mask(time_axis, times)
+        expect = [True]
+        self.assertEqual(expect, result)
+
+    def test_time_mask_given_zero_times(self):
+        start, middle, end = (
+            dt.datetime(2018, 1, 1),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 3))
+        result = main.time_mask([start, middle, end], [])
+        expect = [False, False, False]
+        np.testing.assert_array_equal(expect, result)
+
+    def test_time_mask_given_single_time(self):
+        start, middle, end = (
+            dt.datetime(2018, 1, 1),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 3))
+        result = main.time_mask([start, middle, end], [middle])
+        expect = [False, True, False]
+        np.testing.assert_array_equal(expect, result)
+
+    def test_time_mask_given_two_times(self):
+        start, middle, end = (
+            dt.datetime(2018, 1, 1),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 3))
+        result = main.time_mask([start, middle, end], [start, end])
+        expect = [True, False, True]
+        np.testing.assert_array_equal(expect, result)
+
+    def test_time_mask_given_four_times(self):
+        time_axis = np.array([
+            dt.datetime(2018, 1, 1),
+            dt.datetime(2018, 1, 2),
+            dt.datetime(2018, 1, 3),
+            dt.datetime(2018, 1, 4),
+            dt.datetime(2018, 1, 5)], dtype=object)
+        times = np.array([
+            dt.datetime(2018, 1, 1),
+            dt.datetime(2018, 1, 3),
+            dt.datetime(2018, 1, 4),
+            dt.datetime(2018, 1, 5)], dtype=object)
+        result = main.time_mask(time_axis, times)
+        expect = [True, False, True, True, True]
+        np.testing.assert_array_equal(expect, result)

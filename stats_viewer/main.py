@@ -76,8 +76,8 @@ def main():
         y_units="screen")
     figure.add_layout(label)
 
-    tap_tool = bokeh.models.TapTool()
-    figure.add_tools(tap_tool)
+    tool = bokeh.models.BoxSelectTool()
+    figure.add_tools(tool)
 
     dropdowns = []
 
@@ -125,11 +125,8 @@ def main():
     profile = Profile(figure=profile_figure)
     model.register(profile)
 
-    selection_profile = Profile(figure=profile_figure,
-                                line_color="red",
-                                fill_color="red",
-                                select_times=True)
-    model.register(selection_profile)
+    profile_selection = ProfileSelection(figure=profile_figure)
+    model.register(profile_selection)
 
     leadtime_figure = bokeh.plotting.figure()
     leadtime_figure.toolbar_location = "below"
@@ -180,11 +177,7 @@ class Leadtime(object):
 
 
 class Profile(object):
-    def __init__(self, source=None, figure=None,
-                 line_color=None,
-                 fill_color=None,
-                 select_times=False):
-        self.select_times = select_times
+    def __init__(self, source=None, figure=None):
         if source is None:
             source = bokeh.models.ColumnDataSource({
                 "x": [],
@@ -195,29 +188,17 @@ class Profile(object):
             figure = bokeh.plotting.figure()
         self.figure = figure
         self.figure.y_range.flipped = True
-        self.figure.line(x="x", y="y", source=source, line_color=line_color)
-        self.figure.circle(x="x", y="y", source=source, fill_color=fill_color)
+        self.figure.line(x="x", y="y", source=source)
+        self.figure.circle(x="x", y="y", source=source)
 
     def update(self, model):
-        if self.select_times:
-            if all([getattr(model, attr) is not None for attr in [
-                    "times",
-                    "variable",
-                    "metric",
-                    "region"]]):
-                self.render(
-                    model.variable,
-                    model.metric,
-                    model.region,
-                    times=model.times)
-        else:
-            if model.valid():
-                self.render(
-                    model.variable,
-                    model.metric,
-                    model.region)
+        if model.valid():
+            self.render(
+                model.variable,
+                model.metric,
+                model.region)
 
-    def render(self, variable, metric, region, times=None):
+    def render(self, variable, metric, region):
         for path in STATS_FILES:
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
@@ -227,26 +208,115 @@ class Profile(object):
                     y = dataset.variables["depths"][:]
                 mi = index(dataset.variables["metric_names"][:], metric)
                 ai = index(dataset.variables["area_names"][:], region)
-                if times is None:
-                    ti = slice(None, None)
-                else:
-                    time_var = dataset.variables["time"]
-                    dataset_times = netCDF4.num2date(
-                        time_var[:],
-                        units=time_var.units)
-                    masks = [dataset_times == t for t in times]
-                    if len(masks) > 1:
-                        ti = np.logical_or(*masks)
-                    else:
-                        ti = masks[0]
-                    print("render", ti, var[:].shape)
-                x = var[ti, 0, :, mi, ai]
+                x = var[:, 0, :, mi, ai]
                 x = x.mean(axis=0)
                 self.source.data = {
                     "x": x,
                     "y": y
                 }
             break
+
+
+class ProfileSelection(object):
+    def __init__(self, figure=None,
+                 multiline_glyph=None,
+                 circle_glyph=None):
+        if figure is None:
+            figure = bokeh.plotting.figure()
+        self.figure = figure
+        self.circle_source = bokeh.models.ColumnDataSource({
+            "x": [],
+            "y": []
+        })
+        self.multiline_source = bokeh.models.ColumnDataSource({
+            "xs": [],
+            "ys": []
+        })
+        if multiline_glyph is None:
+            multiline_glyph = bokeh.models.MultiLine(
+                xs="xs",
+                ys="ys",
+                line_color="red")
+        self.multiline_glyph = multiline_glyph
+        self.figure.add_glyph(
+            self.multiline_source,
+            self.multiline_glyph)
+        if circle_glyph is None:
+            self.circle_glyph = bokeh.models.Circle(
+                x="x",
+                y="y",
+                fill_color="red")
+        else:
+            self.circle_glyph = circle_glyph
+        self.figure.add_glyph(
+            self.circle_source,
+            self.circle_glyph)
+
+    def update(self, model):
+        if all([getattr(model, attr) is not None for attr in [
+                "times",
+                "variable",
+                "metric",
+                "region"]]):
+            self.render(
+                model.variable,
+                model.metric,
+                model.region,
+                model.times)
+
+    def render(self, variable, metric, region, times):
+        if len(times) == 0:
+            self.multiline_source.data = {
+                "xs": [],
+                "ys": []
+            }
+            self.circle_source.data = {
+                "x": [],
+                "y": []
+            }
+            return
+
+        for path in STATS_FILES:
+            with netCDF4.Dataset(path) as dataset:
+                var = dataset.variables[variable]
+                if "surface" in var.dimensions:
+                    z = np.array([0])
+                else:
+                    z = dataset.variables["depths"][:]
+                    z[np.isinf(z)] = 2000.
+                mi = index(dataset.variables["metric_names"][:], metric)
+                ai = index(dataset.variables["area_names"][:], region)
+                dataset_times = netCDF4.num2date(
+                    dataset.variables["time"][:],
+                    units=dataset.variables["time"].units)
+                ti = time_mask(dataset_times, times)
+                lines = var[ti, 0, :, mi, ai]
+                xs, ys = [], []
+                for line in lines:
+                    xs.append(line.tolist())
+                    ys.append(z.tolist())
+                x = np.ma.asarray(xs).flatten()
+                y = np.ma.asarray(ys).flatten()
+                self.multiline_source.data = {
+                    "xs": xs,
+                    "ys": ys
+                }
+                self.circle_source.data = {
+                    "x": x,
+                    "y": y
+                }
+            break
+
+
+def time_mask(time_axis, times):
+    if isinstance(time_axis, list):
+        time_axis = np.array(time_axis, dtype=object)
+    if len(times) == 0:
+        return np.zeros_like(time_axis, dtype=np.bool)
+    elif len(times) == 1:
+        return time_axis == times[0]
+    else:
+        return np.logical_or.reduce([time_axis == t for t in times])
 
 
 class Model(Observable):
