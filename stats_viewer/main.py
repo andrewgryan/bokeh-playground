@@ -7,10 +7,22 @@ import glob
 import os
 
 
-if "STATS_FILES" in os.environ:
-    STATS_FILES = os.getenv("STATS_FILES").split()
-else:
-    STATS_FILES = sorted(glob.glob("/scratch/oceanver/class4/copernicus/*/stats/product_quality_*.nc"))
+class MissingEnvironmentVariable(Exception):
+    pass
+
+
+class Environment(object):
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
+def parse_env():
+    variable = "STATS_FILES"
+    if variable not in os.environ:
+        message = "'{}' environment variable not set".format(variable)
+        raise MissingEnvironmentVariable(message)
+    return Environment(
+        stats_files=os.getenv(variable).split())
 
 
 class Observable(object):
@@ -37,6 +49,8 @@ class TimePicker(Observable):
 
 
 def main():
+    env = parse_env()
+
     figure = bokeh.plotting.figure(
         tools='pan,xwheel_zoom,box_zoom,save,reset,help',
         x_axis_type="datetime",
@@ -84,7 +98,10 @@ def main():
     model = Model()
     picker.register(model)
 
-    view = View(source, label)
+    view = View(
+        env.stats_files,
+        source,
+        label)
     model.register(view)
 
     title = Title(figure)
@@ -92,7 +109,7 @@ def main():
 
     default_menu = [("Select PRODUCT", "")]
 
-    items = find_attributes(STATS_FILES, "product")
+    items = find_attributes(env.stats_files, "product")
     menu = [(item.strip(), item) for item in items]
     dropdown = bokeh.models.Dropdown(menu=menu, label="Products")
     dropdown.on_click(model.on_experiment)
@@ -101,31 +118,31 @@ def main():
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Variables")
-    model.register(Variables(dropdown))
+    model.register(Variables(env.stats_files, dropdown))
     dropdown.on_click(model.on_variable)
     dropdowns.append(dropdown)
 
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Metrics")
-    model.register(Names(dropdown, "metric_names"))
+    model.register(Names(env.stats_files, dropdown, "metric_names"))
     dropdown.on_click(model.on_metric)
     dropdowns.append(dropdown)
 
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Regions")
-    model.register(Names(dropdown, "area_names"))
+    model.register(Names(env.stats_files, dropdown, "area_names"))
     dropdown.on_click(model.on_region)
     dropdowns.append(dropdown)
 
     profile_figure = bokeh.plotting.figure()
     profile_figure.toolbar_location = "below"
 
-    profile = Profile(figure=profile_figure)
+    profile = Profile(env.stats_files, figure=profile_figure)
     model.register(profile)
 
-    profile_selection = ProfileSelection(figure=profile_figure)
+    profile_selection = ProfileSelection(env.stats_files, figure=profile_figure)
     model.register(profile_selection)
 
     leadtime_figure = bokeh.plotting.figure()
@@ -136,7 +153,7 @@ def main():
     })
     leadtime_figure.line(x="x", y="y", source=source)
     leadtime_figure.circle(x="x", y="y", source=source)
-    model.register(Leadtime(source))
+    model.register(Leadtime(env.stats_files, source))
 
     row = bokeh.layouts.row(dropdowns, sizing_mode="scale_width")
     document = bokeh.plotting.curdoc()
@@ -150,7 +167,8 @@ def main():
 
 
 class Leadtime(object):
-    def __init__(self, source):
+    def __init__(self, stats_files, source):
+        self.stats_files = stats_files
         self.source = source
 
     def update(self, model):
@@ -158,7 +176,7 @@ class Leadtime(object):
             self.render(model)
 
     def render(self, model):
-        for path in STATS_FILES:
+        for path in self.stats_files:
             with netCDF4.Dataset(path) as dataset:
                 mi = index(dataset.variables["metric_names"][:], model.metric)
                 ai = index(dataset.variables["area_names"][:], model.region)
@@ -177,7 +195,8 @@ class Leadtime(object):
 
 
 class Profile(object):
-    def __init__(self, source=None, figure=None):
+    def __init__(self, stats_files, source=None, figure=None):
+        self.stats_files = stats_files
         if source is None:
             source = bokeh.models.ColumnDataSource({
                 "x": [],
@@ -199,7 +218,7 @@ class Profile(object):
                 model.region)
 
     def render(self, variable, metric, region):
-        for path in STATS_FILES:
+        for path in self.stats_files:
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
                 if "surface" in var.dimensions:
@@ -218,9 +237,12 @@ class Profile(object):
 
 
 class ProfileSelection(object):
-    def __init__(self, figure=None,
+    def __init__(self,
+                 stats_files,
+                 figure=None,
                  multiline_glyph=None,
                  circle_glyph=None):
+        self.stats_files = stats_files
         if figure is None:
             figure = bokeh.plotting.figure()
         self.figure = figure
@@ -276,7 +298,7 @@ class ProfileSelection(object):
             }
             return
 
-        for path in STATS_FILES:
+        for path in self.stats_files:
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
                 if "surface" in var.dimensions:
@@ -357,33 +379,44 @@ class Model(Observable):
 
 
 class Variables(object):
-    def __init__(self, dropdown):
+    def __init__(self,
+                 stats_files,
+                 dropdown):
+        self.stats_files = stats_files
         self.dropdown = dropdown
 
     def update(self, model):
         if model.experiment is None:
             return
-        items = find_variables(select(STATS_FILES, "product", model.experiment))
+        items = find_variables(select(self.stats_files, "product", model.experiment))
         menu = [(item.strip(), item) for item in items]
         self.dropdown.menu = menu
 
 
 class Names(object):
-    def __init__(self, dropdown, variable):
+    def __init__(self,
+                 stats_files,
+                 dropdown,
+                 variable):
+        self.stats_files = stats_files
         self.dropdown = dropdown
         self.variable = variable
 
     def update(self, model):
         if model.experiment is None:
             return
-        items = find_names(select(STATS_FILES, "product", model.experiment),
+        items = find_names(select(self.stats_files, "product", model.experiment),
                            self.variable)
         menu = [(item.strip(), item) for item in items]
         self.dropdown.menu = menu
 
 
 class View(object):
-    def __init__(self, source, label):
+    def __init__(self,
+                 stats_files,
+                 source,
+                 label):
+        self.stats_files = stats_files
         self.source = source
         self.label = label
 
@@ -393,7 +426,7 @@ class View(object):
 
     def render(self, model):
         try:
-            x, y = read(select(STATS_FILES, "product", model.experiment),
+            x, y = read(select(self.stats_files, "product", model.experiment),
                         model.variable,
                         model.metric,
                         model.region)

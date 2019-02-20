@@ -4,6 +4,7 @@ import datetime as dt
 import netCDF4
 import numpy as np
 import main
+import os
 
 
 class TestStatsViewer(unittest.TestCase):
@@ -32,9 +33,34 @@ class TestStatsViewer(unittest.TestCase):
             np.testing.assert_array_equal(expect, result)
 
 
+class TestEnvironment(unittest.TestCase):
+    def tearDown(self):
+        if "STATS_FILES" in os.environ:
+            del os.environ["STATS_FILES"]
+
+    def test_parse_env_requires_stats_files(self):
+        with self.assertRaises(main.MissingEnvironmentVariable):
+            result = main.parse_env()
+
+    def test_stats_files_given_environment_variable(self):
+        os.environ["STATS_FILES"] = "a.nc b.nc"
+        result = main.parse_env().stats_files
+        expect = ["a.nc", "b.nc"]
+        self.assertEqual(expect, result)
+
+
+class TestMain(unittest.TestCase):
+    def test_main(self):
+        path = "test-stats.nc"
+        os.environ["STATS_FILES"] = path
+        with netCDF4.Dataset(path, "w") as dataset:
+            pass
+        main.main()
+
+
 class TestProfile(unittest.TestCase):
     def test_render_given_times(self):
-        profile = main.Profile()
+        profile = main.Profile([])
 
     def test_time_mask(self):
         time_axis = [dt.datetime(2018, 1, 1)]
