@@ -17,12 +17,24 @@ class Environment(object):
 
 
 def parse_env():
-    variable = "STATS_FILES"
-    if variable not in os.environ:
-        message = "'{}' environment variable not set".format(variable)
-        raise MissingEnvironmentVariable(message)
     return Environment(
-        stats_files=os.getenv(variable).split())
+        stats_files=parse_env_variable("STATS_FILES", nargs="+"),
+        attribute=parse_env_variable("ATTRIBUTE", default="product")
+    )
+
+
+def parse_env_variable(variable, nargs=None, default=None):
+    if variable not in os.environ:
+        if default is None:
+            message = "'{}' environment variable not set".format(variable)
+            raise MissingEnvironmentVariable(message)
+        else:
+            return default
+    value = os.getenv(variable)
+    if nargs == "+":
+        return value.split()
+    else:
+        return value
 
 
 class Observable(object):
@@ -100,6 +112,7 @@ def main():
 
     view = View(
         env.stats_files,
+        env.attribute,
         source,
         label)
     model.register(view)
@@ -109,7 +122,7 @@ def main():
 
     default_menu = [("Select PRODUCT", "")]
 
-    items = find_attributes(env.stats_files, "product")
+    items = find_attributes(env.stats_files, env.attribute)
     menu = [(item.strip(), item) for item in items]
     dropdown = bokeh.models.Dropdown(menu=menu, label="Products")
     dropdown.on_click(model.on_experiment)
@@ -118,21 +131,32 @@ def main():
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Variables")
-    model.register(Variables(env.stats_files, dropdown))
+    model.register(Variables(
+        env.stats_files,
+        env.attribute,
+        dropdown))
     dropdown.on_click(model.on_variable)
     dropdowns.append(dropdown)
 
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Metrics")
-    model.register(Names(env.stats_files, dropdown, "metric_names"))
+    model.register(Names(
+        env.stats_files,
+        env.attribute,
+        dropdown,
+        "metric_names"))
     dropdown.on_click(model.on_metric)
     dropdowns.append(dropdown)
 
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Regions")
-    model.register(Names(env.stats_files, dropdown, "area_names"))
+    model.register(Names(
+        env.stats_files,
+        env.attribute,
+        dropdown,
+        "area_names"))
     dropdown.on_click(model.on_region)
     dropdowns.append(dropdown)
 
@@ -381,14 +405,19 @@ class Model(Observable):
 class Variables(object):
     def __init__(self,
                  stats_files,
+                 netcdf_attribute,
                  dropdown):
         self.stats_files = stats_files
+        self.netcdf_attribute = netcdf_attribute
         self.dropdown = dropdown
 
     def update(self, model):
         if model.experiment is None:
             return
-        items = find_variables(select(self.stats_files, "product", model.experiment))
+        items = find_variables(select(
+            self.stats_files,
+            self.netcdf_attribute,
+            model.experiment))
         menu = [(item.strip(), item) for item in items]
         self.dropdown.menu = menu
 
@@ -396,17 +425,21 @@ class Variables(object):
 class Names(object):
     def __init__(self,
                  stats_files,
+                 netcdf_attribute,
                  dropdown,
                  variable):
         self.stats_files = stats_files
+        self.netcdf_attribute = netcdf_attribute
         self.dropdown = dropdown
         self.variable = variable
 
     def update(self, model):
         if model.experiment is None:
             return
-        items = find_names(select(self.stats_files, "product", model.experiment),
-                           self.variable)
+        items = find_names(select(
+            self.stats_files,
+            self.netcdf_attribute,
+            model.experiment), self.variable)
         menu = [(item.strip(), item) for item in items]
         self.dropdown.menu = menu
 
@@ -414,9 +447,11 @@ class Names(object):
 class View(object):
     def __init__(self,
                  stats_files,
+                 netcdf_attribute,
                  source,
                  label):
         self.stats_files = stats_files
+        self.netcdf_attribute = netcdf_attribute
         self.source = source
         self.label = label
 
@@ -426,7 +461,10 @@ class View(object):
 
     def render(self, model):
         try:
-            x, y = read(select(self.stats_files, "product", model.experiment),
+            x, y = read(select(
+                self.stats_files,
+                self.netcdf_attribute,
+                model.experiment),
                         model.variable,
                         model.metric,
                         model.region)

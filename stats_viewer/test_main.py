@@ -48,6 +48,19 @@ class TestEnvironment(unittest.TestCase):
         expect = ["a.nc", "b.nc"]
         self.assertEqual(expect, result)
 
+    def test_attribute_default(self):
+        os.environ["STATS_FILES"] = "a.nc b.nc"
+        result = main.parse_env().attribute
+        expect = "product"
+        self.assertEqual(expect, result)
+
+    def test_attribute_given_environment_variable(self):
+        os.environ["STATS_FILES"] = "a.nc b.nc"
+        os.environ["ATTRIBUTE"] = "system"
+        result = main.parse_env().attribute
+        expect = "system"
+        self.assertEqual(expect, result)
+
 
 class TestMain(unittest.TestCase):
     def test_main(self):
