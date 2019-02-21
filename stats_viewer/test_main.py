@@ -75,6 +75,8 @@ class TestProfileRead(unittest.TestCase):
     def setUp(self):
         self._paths = []
         self.path = self.fixture("test-read.nc")
+        self.metrics = ["metric"]
+        self.areas = ["area"]
         self.units = "seconds since 1981-01-01 00:00:00 utc"
 
     def fixture(self, path):
@@ -87,11 +89,9 @@ class TestProfileRead(unittest.TestCase):
                 os.remove(path)
 
     def test_read_sets_circle_source(self):
-        metrics = ["metric"]
-        areas = ["area"]
         times = [dt.datetime(2019, 1, 1)]
         with netCDF4.Dataset(self.path, "w") as dataset:
-            self.define(dataset, metrics, areas, times, self.units)
+            self.define(dataset, self.metrics, self.areas, times, self.units)
             var = dataset.createVariable(
                 "stats_variable", "f",
                 ("time", "forecasts", "surface", "metrics", "areas"))
@@ -103,17 +103,17 @@ class TestProfileRead(unittest.TestCase):
         result = profile.circle_source.data
         expect = {
             "x": [1.],
-            "y": [0.]
+            "y": [0.],
+            "t": np.array(times, dtype=object)
         }
         np.testing.assert_array_almost_equal(expect["x"], result["x"])
         np.testing.assert_array_almost_equal(expect["y"], result["y"])
+        np.testing.assert_array_equal(expect["t"], result["t"])
 
     def test_read_selects_particular_files(self):
-        metrics = ["metric"]
-        areas = ["area"]
         times = [dt.datetime(2019, 1, 1)]
         with netCDF4.Dataset(self.path, "w") as dataset:
-            self.define(dataset, metrics, areas, times, self.units)
+            self.define(dataset, self.metrics, self.areas, times, self.units)
             var = dataset.createVariable(
                 "stats_variable", "f",
                 ("time", "forecasts", "surface", "metrics", "areas"))
@@ -125,10 +125,36 @@ class TestProfileRead(unittest.TestCase):
         result = profile.circle_source.data
         expect = {
             "x": [],
-            "y": []
+            "y": [],
+            "t": []
         }
         np.testing.assert_array_almost_equal(expect["x"], result["x"])
         np.testing.assert_array_almost_equal(expect["y"], result["y"])
+        np.testing.assert_array_equal(expect["t"], result["t"])
+
+    def test_read_profile_sets_time_correctly(self):
+        year, month = 2018, 1
+        times = [dt.datetime(year, month, 1), dt.datetime(year, month, 2)]
+        depths = [10, 50]
+        with netCDF4.Dataset(self.path, "w") as dataset:
+            self.define(dataset, self.metrics, self.areas, times, self.units)
+            self.define_depths(dataset, depths)
+            var = dataset.createVariable(
+                "stats_variable", "f",
+                ("time", "forecasts", "depths", "metrics", "areas"))
+            var[:] = [[1, 1], [2, 2]]
+            dataset.product = "product"
+        profile = main.ProfileSelection([self.path], "product")
+        profile.render("product", "stats_variable", "metric", "area", times)
+        result = profile.circle_source.data
+        expect = {
+            "x": [1, 1, 2, 2],
+            "y": [10, 50, 10, 50],
+            "t": [times[0], times[0], times[1], times[1]]
+        }
+        np.testing.assert_array_almost_equal(expect["x"], result["x"])
+        np.testing.assert_array_almost_equal(expect["y"], result["y"])
+        np.testing.assert_array_equal(expect["t"], result["t"])
 
     @staticmethod
     def define(dataset, metrics, areas, times, units):
@@ -150,6 +176,12 @@ class TestProfileRead(unittest.TestCase):
             "time", "d", ("time",))
         var.units = units
         var[:] = netCDF4.date2num(times, units=units)
+
+    @staticmethod
+    def define_depths(dataset, depths):
+        dataset.createDimension("depths", len(depths))
+        var = dataset.createVariable("depths", "f", ("depths",))
+        var[:] = depths
 
 
 class TestProfile(unittest.TestCase):

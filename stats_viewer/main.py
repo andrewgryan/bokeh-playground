@@ -277,7 +277,8 @@ class ProfileSelection(object):
         self.figure = figure
         self.circle_source = bokeh.models.ColumnDataSource({
             "x": [],
-            "y": []
+            "y": [],
+            "t": []
         })
         self.multiline_source = bokeh.models.ColumnDataSource({
             "xs": [],
@@ -299,9 +300,19 @@ class ProfileSelection(object):
                 fill_color="red")
         else:
             self.circle_glyph = circle_glyph
-        self.figure.add_glyph(
+        circle_renderer = self.figure.add_glyph(
             self.circle_source,
             self.circle_glyph)
+        hover_tool = bokeh.models.HoverTool(
+            tooltips=[
+                ('value', '@x'),
+                ('depth', '@y'),
+                ('time', '@t{%F}')
+            ],
+            formatters={'t': 'datetime'},
+            renderers=[circle_renderer]
+        )
+        self.figure.add_tools(hover_tool)
 
     def update(self, model):
         if all([getattr(model, attr) is not None for attr in [
@@ -324,7 +335,8 @@ class ProfileSelection(object):
             }
             self.circle_source.data = {
                 "x": [],
-                "y": []
+                "y": [],
+                "t": []
             }
             return
 
@@ -352,13 +364,15 @@ class ProfileSelection(object):
                     ys.append(z.tolist())
                 x = np.ma.asarray(xs).flatten()
                 y = np.ma.asarray(ys).flatten()
+                t = np.repeat(dataset_times[ti], len(z))
                 self.multiline_source.data = {
                     "xs": xs,
                     "ys": ys
                 }
                 self.circle_source.data = {
                     "x": x,
-                    "y": y
+                    "y": y,
+                    "t": t
                 }
             break
 
