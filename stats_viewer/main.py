@@ -174,13 +174,8 @@ def main():
 
     leadtime_figure = bokeh.plotting.figure()
     leadtime_figure.toolbar_location = "below"
-    source = bokeh.models.ColumnDataSource({
-        "x": [],
-        "y": []
-    })
-    leadtime_figure.line(x="x", y="y", source=source)
-    leadtime_figure.circle(x="x", y="y", source=source)
-    model.register(Leadtime(env.stats_files, source))
+    leadtime = Leadtime(env.stats_files, figure=leadtime_figure)
+    model.register(leadtime)
 
     row = bokeh.layouts.row(dropdowns, sizing_mode="scale_width")
     document = bokeh.plotting.curdoc()
@@ -194,24 +189,37 @@ def main():
 
 
 class Leadtime(object):
-    def __init__(self, stats_files, source):
+    def __init__(self, stats_files, source=None, figure=None):
         self.stats_files = stats_files
+        if source is None:
+            source = bokeh.models.ColumnDataSource({
+                "x": [],
+                "y": []
+            })
         self.source = source
+        if figure is None:
+            figure = bokeh.plotting.figure()
+        self.figure = figure
+        self.figure.line(x="x", y="y", source=source)
+        self.figure.circle(x="x", y="y", source=source)
 
     def update(self, model):
         if model.valid():
-            self.render(model)
+            self.render(
+                model.variable,
+                model.metric,
+                model.region)
 
-    def render(self, model):
+    def render(self, variable, metric, region):
         for path in self.stats_files:
             with netCDF4.Dataset(path) as dataset:
-                mi = index(dataset.variables["metric_names"][:], model.metric)
-                ai = index(dataset.variables["area_names"][:], model.region)
+                mi = index(dataset.variables["metric_names"][:], metric)
+                ai = index(dataset.variables["area_names"][:], region)
                 names = np.char.strip(
                     netCDF4.chartostring(
                         dataset.variables["forecast_names"][:]))
                 fi = names == "forecast"
-                y = dataset.variables[model.variable][:, fi, :, mi, ai]
+                y = dataset.variables[variable][:, fi, :, mi, ai]
                 y = y.mean(axis=(0, 2))
                 x = dataset.variables["forecasts"][fi]
                 self.source.data = {
