@@ -166,7 +166,10 @@ def main():
     profile = Profile(env.stats_files, figure=profile_figure)
     model.register(profile)
 
-    profile_selection = ProfileSelection(env.stats_files, figure=profile_figure)
+    profile_selection = ProfileSelection(
+        env.stats_files,
+        env.attribute,
+        figure=profile_figure)
     model.register(profile_selection)
 
     leadtime_figure = bokeh.plotting.figure()
@@ -263,10 +266,12 @@ class Profile(object):
 class ProfileSelection(object):
     def __init__(self,
                  stats_files,
+                 netcdf_attribute,
                  figure=None,
                  multiline_glyph=None,
                  circle_glyph=None):
         self.stats_files = stats_files
+        self.netcdf_attribute = netcdf_attribute
         if figure is None:
             figure = bokeh.plotting.figure()
         self.figure = figure
@@ -305,12 +310,13 @@ class ProfileSelection(object):
                 "metric",
                 "region"]]):
             self.render(
+                model.experiment,
                 model.variable,
                 model.metric,
                 model.region,
                 model.times)
 
-    def render(self, variable, metric, region, times):
+    def render(self, experiment, variable, metric, region, times):
         if len(times) == 0:
             self.multiline_source.data = {
                 "xs": [],
@@ -322,7 +328,10 @@ class ProfileSelection(object):
             }
             return
 
-        for path in self.stats_files:
+        for path in select(
+                self.stats_files,
+                self.netcdf_attribute,
+                experiment):
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
                 if "surface" in var.dimensions:
