@@ -112,11 +112,7 @@ def main():
         env.attribute)
     picker.register(model)
 
-    view = TimeSeries(
-        env.stats_files,
-        env.attribute,
-        source,
-        label)
+    view = TimeSeries(source, label)
     model.register(view)
 
     title = Title(figure)
@@ -133,51 +129,36 @@ def main():
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Variables")
-    model.register(Variables(
-        env.stats_files,
-        env.attribute,
-        dropdown))
+    model.register(Variables(dropdown))
     dropdown.on_click(model.on_variable)
     dropdowns.append(dropdown)
 
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Metrics")
-    model.register(Names(
-        env.stats_files,
-        env.attribute,
-        dropdown,
-        "metric_names"))
+    model.register(Names(dropdown, "metric_names"))
     dropdown.on_click(model.on_metric)
     dropdowns.append(dropdown)
 
     dropdown = bokeh.models.Dropdown(
         menu=default_menu,
         label="Regions")
-    model.register(Names(
-        env.stats_files,
-        env.attribute,
-        dropdown,
-        "area_names"))
+    model.register(Names(dropdown, "area_names"))
     dropdown.on_click(model.on_region)
     dropdowns.append(dropdown)
 
     profile_figure = bokeh.plotting.figure()
     profile_figure.toolbar_location = "below"
 
-    profile = Profile(env.stats_files, figure=profile_figure)
+    profile = Profile(figure=profile_figure)
     model.register(profile)
 
-    profile_selection = ProfileSelection(
-        figure=profile_figure)
+    profile_selection = ProfileSelection(figure=profile_figure)
     model.register(profile_selection)
 
     leadtime_figure = bokeh.plotting.figure()
     leadtime_figure.toolbar_location = "below"
-    leadtime = Leadtime(
-        env.stats_files,
-        env.attribute,
-        figure=leadtime_figure)
+    leadtime = Leadtime(figure=leadtime_figure)
     model.register(leadtime)
 
     # Table
@@ -230,9 +211,7 @@ def main():
 
 
 class Leadtime(object):
-    def __init__(self, stats_files, netcdf_attribute, source=None, figure=None):
-        self.stats_files = stats_files
-        self.netcdf_attribute = netcdf_attribute
+    def __init__(self, source=None, figure=None):
         if source is None:
             source = bokeh.models.ColumnDataSource({
                 "x": [],
@@ -248,16 +227,25 @@ class Leadtime(object):
     def update(self, model):
         if model.valid():
             self.render(
+                model.stats_files,
+                model.netcdf_attribute,
                 model.experiment,
                 model.variable,
                 model.metric,
                 model.region)
 
-    def render(self, experiment, variable, metric, region):
+    def render(
+            self,
+            stats_files,
+            netcdf_attribute,
+            experiment,
+            variable,
+            metric,
+            region):
         xs, ys = [], []
         for path in select(
-                self.stats_files,
-                self.netcdf_attribute,
+                stats_files,
+                netcdf_attribute,
                 experiment):
             with netCDF4.Dataset(path) as dataset:
                 mi = index(dataset.variables["metric_names"][:], metric)
@@ -280,8 +268,7 @@ class Leadtime(object):
 
 
 class Profile(object):
-    def __init__(self, stats_files, source=None, figure=None):
-        self.stats_files = stats_files
+    def __init__(self, source=None, figure=None):
         if source is None:
             source = bokeh.models.ColumnDataSource({
                 "x": [],
@@ -298,12 +285,13 @@ class Profile(object):
     def update(self, model):
         if model.valid():
             self.render(
+                model.stats_files,
                 model.variable,
                 model.metric,
                 model.region)
 
-    def render(self, variable, metric, region):
-        for path in self.stats_files:
+    def render(self, stats_files, variable, metric, region):
+        for path in stats_files:
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
                 if "surface" in var.dimensions:
@@ -501,33 +489,22 @@ class Model(Observable):
 
 
 class Variables(object):
-    def __init__(self,
-                 stats_files,
-                 netcdf_attribute,
-                 dropdown):
-        self.stats_files = stats_files
-        self.netcdf_attribute = netcdf_attribute
+    def __init__(self, dropdown):
         self.dropdown = dropdown
 
     def update(self, model):
         if model.experiment is None:
             return
         items = find_variables(select(
-            self.stats_files,
-            self.netcdf_attribute,
+            model.stats_files,
+            model.netcdf_attribute,
             model.experiment))
         menu = [(item.strip(), item) for item in items]
         self.dropdown.menu = menu
 
 
 class Names(object):
-    def __init__(self,
-                 stats_files,
-                 netcdf_attribute,
-                 dropdown,
-                 variable):
-        self.stats_files = stats_files
-        self.netcdf_attribute = netcdf_attribute
+    def __init__(self, dropdown, variable):
         self.dropdown = dropdown
         self.variable = variable
 
@@ -535,8 +512,8 @@ class Names(object):
         if model.experiment is None:
             return
         items = find_names(select(
-            self.stats_files,
-            self.netcdf_attribute,
+            model.stats_files,
+            model.netcdf_attribute,
             model.experiment), self.variable)
         menu = [(item.strip(), item) for item in items]
         self.dropdown.menu = menu
@@ -544,12 +521,8 @@ class Names(object):
 
 class TimeSeries(object):
     def __init__(self,
-                 stats_files,
-                 netcdf_attribute,
                  source,
                  label):
-        self.stats_files = stats_files
-        self.netcdf_attribute = netcdf_attribute
         self.source = source
         self.label = label
 
@@ -560,8 +533,8 @@ class TimeSeries(object):
     def render(self, model):
         try:
             x, y = self.read(select(
-                self.stats_files,
-                self.netcdf_attribute,
+                model.stats_files,
+                model.netcdf_attribute,
                 model.experiment),
                         model.variable,
                         model.metric,

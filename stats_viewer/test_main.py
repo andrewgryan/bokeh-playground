@@ -208,8 +208,14 @@ class TestLeadtime(unittest.TestCase):
                 var = statistics.variable("stats_variable")
                 var[:] = i
                 setattr(dataset, self.attribute, "A")
-        leadtime = main.Leadtime(paths, self.attribute)
-        leadtime.render("A", "stats_variable", "metric", "area")
+        leadtime = main.Leadtime()
+        leadtime.render(
+            paths,
+            self.attribute,
+            "A",
+            "stats_variable",
+            "metric",
+            "area")
         result = leadtime.source.data
         expect = {
             "x": [12.],
@@ -234,8 +240,14 @@ class TestLeadtime(unittest.TestCase):
                 var = statistics.variable("stats_variable")
                 var[:] = i
                 setattr(dataset, self.attribute, labels[i])
-        leadtime = main.Leadtime(paths, self.attribute)
-        leadtime.render("B", "stats_variable", "metric", "area")
+        leadtime = main.Leadtime()
+        leadtime.render(
+            paths,
+            self.attribute,
+            "B",
+            "stats_variable",
+            "metric",
+            "area")
         result = leadtime.source.data
         expect = {
             "x": [12.],
@@ -361,7 +373,7 @@ class Statistics(object):
 
 class TestProfile(unittest.TestCase):
     def test_render_given_times(self):
-        profile = main.Profile([])
+        profile = main.Profile()
 
     def test_time_mask(self):
         time_axis = [dt.datetime(2018, 1, 1)]
