@@ -97,8 +97,6 @@ class TestProfileRead(unittest.TestCase):
         profile = main.ProfileSelection()
         profile.render(
             [self.path],
-            "product",
-            self.product,
             "stats_variable",
             "metric",
             "area",
@@ -108,39 +106,6 @@ class TestProfileRead(unittest.TestCase):
             "x": [1.],
             "y": [0.],
             "t": np.array(times, dtype=object)
-        }
-        np.testing.assert_array_almost_equal(expect["x"], result["x"])
-        np.testing.assert_array_almost_equal(expect["y"], result["y"])
-        np.testing.assert_array_equal(expect["t"], result["t"])
-
-    def test_read_selects_particular_files(self):
-        times = [dt.datetime(2019, 1, 1)]
-        with netCDF4.Dataset(self.path, "w") as dataset:
-            statistics = Statistics(
-                dataset,
-                self.forecast_names,
-                self.forecasts,
-                self.metrics,
-                self.areas,
-                times)
-            var = statistics.variable("stats_variable", surface=True)
-            var[:] = 1
-            dataset.product = "B"
-
-        profile = main.ProfileSelection()
-        profile.render(
-            [self.path],
-            "product",
-            "A",
-            "stats_variable",
-            "metric",
-            "area",
-            times)
-        result = profile.circle_source.data
-        expect = {
-            "x": [],
-            "y": [],
-            "t": []
         }
         np.testing.assert_array_almost_equal(expect["x"], result["x"])
         np.testing.assert_array_almost_equal(expect["y"], result["y"])
@@ -165,8 +130,6 @@ class TestProfileRead(unittest.TestCase):
         profile = main.ProfileSelection()
         profile.render(
             [self.path],
-            "product",
-            "product",
             "stats_variable",
             "metric",
             "area",
@@ -207,12 +170,9 @@ class TestLeadtime(unittest.TestCase):
                     self.depths)
                 var = statistics.variable("stats_variable")
                 var[:] = i
-                setattr(dataset, self.attribute, "A")
         leadtime = main.Leadtime()
         leadtime.render(
             paths,
-            self.attribute,
-            "A",
             "stats_variable",
             "metric",
             "area")
@@ -220,38 +180,6 @@ class TestLeadtime(unittest.TestCase):
         expect = {
             "x": [12.],
             "y": [0.5]
-        }
-        np.testing.assert_array_almost_equal(expect["x"], result["x"])
-        np.testing.assert_array_almost_equal(expect["y"], result["y"])
-
-    def test_leadtime_read_filters_files_by_attribute(self):
-        paths = self.add_fixtures(["test-lt-0.nc", "test-lt-1.nc"])
-        labels = ["A", "B"]
-        for i, path in enumerate(paths):
-            with netCDF4.Dataset(path, "w") as dataset:
-                statistics = Statistics(
-                    dataset,
-                    self.forecast_names,
-                    self.forecasts,
-                    self.metrics,
-                    self.areas,
-                    self.times,
-                    self.depths)
-                var = statistics.variable("stats_variable")
-                var[:] = i
-                setattr(dataset, self.attribute, labels[i])
-        leadtime = main.Leadtime()
-        leadtime.render(
-            paths,
-            self.attribute,
-            "B",
-            "stats_variable",
-            "metric",
-            "area")
-        result = leadtime.source.data
-        expect = {
-            "x": [12.],
-            "y": [1]
         }
         np.testing.assert_array_almost_equal(expect["x"], result["x"])
         np.testing.assert_array_almost_equal(expect["y"], result["y"])

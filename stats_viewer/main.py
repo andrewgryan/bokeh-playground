@@ -186,7 +186,7 @@ def main():
         label="Forecast mode")
     slider = bokeh.models.Slider(
         start=12,
-        end=108,
+        end=132,
         value=12,
         step=24,
         title="Forecast length")
@@ -228,26 +228,19 @@ class Leadtime(object):
     def update(self, model):
         if model.valid():
             self.render(
-                model.stats_files,
-                model.netcdf_attribute,
-                model.experiment,
+                model.paths,
                 model.variable,
                 model.metric,
                 model.region)
 
     def render(
             self,
-            stats_files,
-            netcdf_attribute,
-            experiment,
+            paths,
             variable,
             metric,
             region):
         xs, ys = [], []
-        for path in select(
-                stats_files,
-                netcdf_attribute,
-                experiment):
+        for path in paths:
             with netCDF4.Dataset(path) as dataset:
                 mi = index(dataset.variables["metric_names"][:], metric)
                 ai = index(dataset.variables["area_names"][:], region)
@@ -286,13 +279,13 @@ class Profile(object):
     def update(self, model):
         if model.valid():
             self.render(
-                model.stats_files,
+                model.paths,
                 model.variable,
                 model.metric,
                 model.region)
 
-    def render(self, stats_files, variable, metric, region):
-        for path in stats_files:
+    def render(self, paths, variable, metric, region):
+        for path in paths:
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
                 if "surface" in var.dimensions:
@@ -364,18 +357,14 @@ class ProfileSelection(object):
                 "metric",
                 "region"]]):
             self.render(
-                model.stats_files,
-                model.netcdf_attribute,
-                model.experiment,
+                model.paths,
                 model.variable,
                 model.metric,
                 model.region,
                 model.times)
 
     def render(self,
-               stats_files,
-               netcdf_attribute,
-               experiment,
+               paths,
                variable,
                metric,
                region,
@@ -392,10 +381,7 @@ class ProfileSelection(object):
             }
             return
 
-        for path in select(
-                stats_files,
-                netcdf_attribute,
-                experiment):
+        for path in paths:
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
                 if "surface" in var.dimensions:
@@ -483,6 +469,13 @@ class Model(Observable):
         self.times = times
         self.notify(self)
 
+    @property
+    def paths(self):
+        return select(
+            self.stats_files,
+            self.netcdf_attribute,
+            self.experiment)
+
     def valid(self):
         for attr in ["experiment", "metric", "variable", "region"]:
             if getattr(self, attr) is None:
@@ -497,10 +490,7 @@ class Variables(object):
     def update(self, model):
         if model.experiment is None:
             return
-        items = find_variables(select(
-            model.stats_files,
-            model.netcdf_attribute,
-            model.experiment))
+        items = find_variables(model.paths)
         menu = [(item.strip(), item) for item in items]
         self.dropdown.menu = menu
 
@@ -513,10 +503,7 @@ class Names(object):
     def update(self, model):
         if model.experiment is None:
             return
-        items = find_names(select(
-            model.stats_files,
-            model.netcdf_attribute,
-            model.experiment), self.variable)
+        items = find_names(model.paths, self.variable)
         menu = [(item.strip(), item) for item in items]
         self.dropdown.menu = menu
 
@@ -534,14 +521,12 @@ class TimeSeries(object):
 
     def render(self, model):
         try:
-            x, y = self.read(select(
-                model.stats_files,
-                model.netcdf_attribute,
-                model.experiment),
-                        model.variable,
-                        model.metric,
-                        model.region,
-                        model.forecast_length)
+            x, y = self.read(
+                model.paths,
+                model.variable,
+                model.metric,
+                model.region,
+                model.forecast_length)
             self.source.data = {
                 "x": x,
                 "y": y
@@ -595,10 +580,10 @@ class Title(object):
             words.append(getattr(model, attr).strip())
         self.title.text = "\n".join(words)
         words = []
-        for attr in ["variable", "metric", "region"]:
+        for attr in ["variable", "metric", "region", "forecast_length"]:
             if getattr(model, attr) is None:
                 continue
-            words.append(getattr(model, attr).strip())
+            words.append(str(getattr(model, attr)).strip())
         self.suptitle.text = "\n".join(words)
 
 
