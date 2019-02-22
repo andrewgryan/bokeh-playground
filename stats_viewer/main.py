@@ -174,7 +174,10 @@ def main():
 
     leadtime_figure = bokeh.plotting.figure()
     leadtime_figure.toolbar_location = "below"
-    leadtime = Leadtime(env.stats_files, figure=leadtime_figure)
+    leadtime = Leadtime(
+        env.stats_files,
+        env.attribute,
+        figure=leadtime_figure)
     model.register(leadtime)
 
     row = bokeh.layouts.row(dropdowns, sizing_mode="scale_width")
@@ -189,8 +192,9 @@ def main():
 
 
 class Leadtime(object):
-    def __init__(self, stats_files, source=None, figure=None):
+    def __init__(self, stats_files, netcdf_attribute, source=None, figure=None):
         self.stats_files = stats_files
+        self.netcdf_attribute = netcdf_attribute
         if source is None:
             source = bokeh.models.ColumnDataSource({
                 "x": [],
@@ -206,12 +210,17 @@ class Leadtime(object):
     def update(self, model):
         if model.valid():
             self.render(
+                model.experiment,
                 model.variable,
                 model.metric,
                 model.region)
 
-    def render(self, variable, metric, region):
-        for path in self.stats_files:
+    def render(self, experiment, variable, metric, region):
+        xs, ys = [], []
+        for path in select(
+                self.stats_files,
+                self.netcdf_attribute,
+                experiment):
             with netCDF4.Dataset(path) as dataset:
                 mi = index(dataset.variables["metric_names"][:], metric)
                 ai = index(dataset.variables["area_names"][:], region)
@@ -222,11 +231,14 @@ class Leadtime(object):
                 y = dataset.variables[variable][:, fi, :, mi, ai]
                 y = y.mean(axis=(0, 2))
                 x = dataset.variables["forecasts"][fi]
-                self.source.data = {
-                    "x": x,
-                    "y": y
-                }
-            break
+                xs.append(x)
+                ys.append(y)
+        x = np.mean(xs, axis=0)
+        y = np.mean(ys, axis=0)
+        self.source.data = {
+            "x": x,
+            "y": y
+        }
 
 
 class Profile(object):
@@ -492,7 +504,7 @@ class View(object):
 
     def render(self, model):
         try:
-            x, y = read(select(
+            x, y = self.read(select(
                 self.stats_files,
                 self.netcdf_attribute,
                 model.experiment),
@@ -510,6 +522,24 @@ class View(object):
                 "y": []
             }
             self.label.text = "Invalid menu combination"
+
+    @staticmethod
+    def read(paths, variable, metric, area):
+        ys = []
+        xs = []
+        for path in paths:
+            with netCDF4.Dataset(path) as dataset:
+                print("reading: {}".format(path))
+                var = dataset.variables["time"]
+                times = netCDF4.num2date(var[:], units=var.units)
+                mi = index(dataset.variables["metric_names"][:], metric)
+                ai = index(dataset.variables["area_names"][:], area)
+                values = dataset.variables[variable][:, 0, 0, mi, ai]
+            xs.append(times)
+            ys.append(values)
+        x = np.ma.concatenate(xs)
+        y = np.ma.concatenate(ys)
+        return x, y
 
 
 class Title(object):
@@ -573,15 +603,6 @@ def find_variables(paths):
     return variables
 
 
-def read_forecasts(dataset):
-    return dataset.variables["forecasts"][:]
-
-
-def read_forecast_names(dataset):
-    var = dataset.variables["forecast_names"]
-    return netCDF4.chartostring(var[:])
-
-
 def select(paths, attr, value):
     for path in paths:
         with netCDF4.Dataset(path) as dataset:
@@ -589,28 +610,35 @@ def select(paths, attr, value):
                 yield path
 
 
-def read(paths, variable, metric, area):
-    ys = []
-    xs = []
-    for path in paths:
-        with netCDF4.Dataset(path) as dataset:
-            print("reading: {}".format(path))
-            var = dataset.variables["time"]
-            times = netCDF4.num2date(var[:], units=var.units)
-            mi = index(dataset.variables["metric_names"][:], metric)
-            ai = index(dataset.variables["area_names"][:], area)
-            values = dataset.variables[variable][:, 0, 0, mi, ai]
-        xs.append(times)
-        ys.append(values)
-    x = np.ma.concatenate(xs)
-    y = np.ma.concatenate(ys)
-    return x, y
-
-
 def index(chars, item):
     strings = netCDF4.chartostring(chars)
     items = [s.strip() for s in strings]
     return items.index(item.strip())
+
+
+def remove_statistic(
+        dataset,
+        variable,
+        forecast_name,
+        forecast,
+        metric,
+        area,
+        time):
+    var = dataset.variables["time"]
+    ti = netCDF4.num2date(var[:], units=var.units) == time
+    fi = (
+        (dataset.variables["forecasts"][:] == forecast) &
+        (read_names(dataset, "forecast_names") == forecast_name))
+    mi = read_names(dataset, "metric_names") == metric
+    ai = read_names(dataset, "area_names") == area
+    pts = (ti, fi, slice(None), mi, ai)
+    values = dataset.variables[variable][pts]
+    dataset.variables[variable][pts] = np.ma.masked_all_like(values)
+
+
+def read_names(dataset, variable):
+    return np.char.strip(netCDF4.chartostring(dataset.variables[variable][:]))
+
 
 
 if __name__.startswith('bk'):

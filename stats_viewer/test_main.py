@@ -7,32 +7,6 @@ import main
 import os
 
 
-class TestStatsViewer(unittest.TestCase):
-    def test_read_forecasts(self):
-        with netCDF4.Dataset("test-read-forecasts.nc",
-                             mode="w", diskless=True) as dataset:
-            dataset.createDimension("forecasts", 2)
-            var = dataset.createVariable(
-                "forecasts", "f", ("forecasts",))
-            var[:] = [12., 36.]
-            result = main.read_forecasts(dataset)
-            expect = np.array([12, 36], dtype="f")
-            np.testing.assert_array_equal(expect, result)
-
-    def test_read_forecast_names(self):
-        forecast_names = np.array(["forecast", "persistence"], dtype="S64")
-        with netCDF4.Dataset("test-read-forecasts.nc",
-                             mode="w", diskless=True) as dataset:
-            dataset.createDimension("forecasts", len(forecast_names))
-            dataset.createDimension("string_length", 64)
-            var = dataset.createVariable(
-                "forecast_names", "c", ("forecasts", "string_length"))
-            var[:] = netCDF4.stringtochar(forecast_names)
-            result = main.read_forecast_names(dataset).astype("S64")
-            expect = forecast_names
-            np.testing.assert_array_equal(expect, result)
-
-
 class TestEnvironment(unittest.TestCase):
     def tearDown(self):
         if "STATS_FILES" in os.environ:
@@ -86,6 +60,10 @@ def fixtures(cls):
         def fixture(self, path):
             self._paths.append(path)
             return path
+
+        def add_fixtures(self, paths):
+            self._paths += paths
+            return paths
 
     return Wrapped
 
@@ -184,27 +162,58 @@ class TestProfileRead(unittest.TestCase):
 
 @fixtures
 class TestLeadtime(unittest.TestCase):
+    def setUp(self):
+        self.forecast_names = ["forecast"]
+        self.forecasts = [12.]
+        self.metrics = ["metric"]
+        self.areas = ["area"]
+        self.times = [dt.datetime(2019, 1, 1)]
+        self.depths = [10, 20]
+        self.attribute = "product"
+
     def test_leadtime_read_given_two_files_returns_average(self):
-        forecast_names = ["forecast"]
-        forecasts = [12.]
-        metrics = ["metric"]
-        areas = ["area"]
-        times = [dt.datetime(2019, 1, 1)]
-        depths = [10, 20]
-        path = self.fixture("test-leadtime.nc")
-        with netCDF4.Dataset(path, "w") as dataset:
-            statistics = Statistics(
-                dataset,
-                forecast_names,
-                forecasts,
-                metrics,
-                areas,
-                times,
-                depths)
-            var = statistics.variable("stats_variable")
-            var[:] = 1
-        leadtime = main.Leadtime([path])
-        leadtime.render("stats_variable", "metric", "area")
+        paths = self.add_fixtures(["test-lt-0.nc", "test-lt-1.nc"])
+        for i, path in enumerate(paths):
+            with netCDF4.Dataset(path, "w") as dataset:
+                statistics = Statistics(
+                    dataset,
+                    self.forecast_names,
+                    self.forecasts,
+                    self.metrics,
+                    self.areas,
+                    self.times,
+                    self.depths)
+                var = statistics.variable("stats_variable")
+                var[:] = i
+                setattr(dataset, self.attribute, "A")
+        leadtime = main.Leadtime(paths, self.attribute)
+        leadtime.render("A", "stats_variable", "metric", "area")
+        result = leadtime.source.data
+        expect = {
+            "x": [12.],
+            "y": [0.5]
+        }
+        np.testing.assert_array_almost_equal(expect["x"], result["x"])
+        np.testing.assert_array_almost_equal(expect["y"], result["y"])
+
+    def test_leadtime_read_filters_files_by_attribute(self):
+        paths = self.add_fixtures(["test-lt-0.nc", "test-lt-1.nc"])
+        labels = ["A", "B"]
+        for i, path in enumerate(paths):
+            with netCDF4.Dataset(path, "w") as dataset:
+                statistics = Statistics(
+                    dataset,
+                    self.forecast_names,
+                    self.forecasts,
+                    self.metrics,
+                    self.areas,
+                    self.times,
+                    self.depths)
+                var = statistics.variable("stats_variable")
+                var[:] = i
+                setattr(dataset, self.attribute, labels[i])
+        leadtime = main.Leadtime(paths, self.attribute)
+        leadtime.render("B", "stats_variable", "metric", "area")
         result = leadtime.source.data
         expect = {
             "x": [12.],
@@ -212,6 +221,55 @@ class TestLeadtime(unittest.TestCase):
         }
         np.testing.assert_array_almost_equal(expect["x"], result["x"])
         np.testing.assert_array_almost_equal(expect["y"], result["y"])
+
+
+class TestEraseStatistics(unittest.TestCase):
+    def setUp(self):
+        self.dataset = netCDF4.Dataset("test-remove.nc", "w", diskless=True)
+        self.variable = "stats_variable"
+        self.forecast_names = ["forecast", "forecast", "persistence"]
+        self.forecasts = [12., 36., 12.]
+        self.areas = ["A1", "A2"]
+        self.metrics = ["M1", "M2"]
+        self.times = [dt.datetime(2019, 1, 1), dt.datetime(2019, 1, 2)]
+        self.shape = (
+            len(self.times),
+            len(self.forecasts),
+            1,
+            len(self.metrics),
+            len(self.areas))
+
+    def tearDown(self):
+        self.dataset.close()
+
+    def test_remove_statistic_erases_particular_statistic(self):
+        ti, fi, mi, ai = 0, 0, 1, 0
+        values = np.ma.arange(np.product(self.shape)).reshape(self.shape)
+        statistics = Statistics(
+            self.dataset,
+            self.forecast_names,
+            self.forecasts,
+            self.metrics,
+            self.areas,
+            self.times)
+        var = statistics.variable(self.variable, surface=True)
+        var[:] = values
+        main.remove_statistic(
+            self.dataset,
+            self.variable,
+            self.forecast_names[fi],
+            self.forecasts[fi],
+            self.metrics[mi],
+            self.areas[ai],
+            self.times[ti])
+        result = self.dataset.variables[self.variable][:]
+        expect = values.copy()
+        expect[ti, fi, :, mi, ai] = np.ma.masked
+        self.assert_masked_array_equal(expect, result)
+
+    def assert_masked_array_equal(self, expect, result):
+        self.assertEqual(expect.shape, result.shape)
+        np.testing.assert_array_equal(expect.compressed(), result.compressed())
 
 
 class Statistics(object):
