@@ -180,6 +180,17 @@ def main():
         figure=leadtime_figure)
     model.register(leadtime)
 
+    # Table
+    columns = [
+        bokeh.models.TableColumn(field="t", title="Time",
+                                 formatter=bokeh.models.DateFormatter()),
+        bokeh.models.TableColumn(field="y", title="Depth"),
+        bokeh.models.TableColumn(field="x", title="Value")
+    ]
+    table = bokeh.models.DataTable(
+        columns=columns,
+        source=profile_selection.circle_source)
+
     row = bokeh.layouts.row(dropdowns, sizing_mode="scale_width")
     document = bokeh.plotting.curdoc()
     document.title = "CMEMS Product quality statistics"
@@ -188,6 +199,9 @@ def main():
     document.add_root(bokeh.layouts.row(
         profile_figure,
         leadtime_figure,
+        sizing_mode="scale_width"))
+    document.add_root(bokeh.layouts.row(
+        table,
         sizing_mode="scale_width"))
 
 
