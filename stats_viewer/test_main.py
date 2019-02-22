@@ -1,5 +1,6 @@
 # pylint: disable=missing-docstring, invalid-name
 import unittest
+import unittest.mock
 import datetime as dt
 import netCDF4
 import numpy as np
@@ -93,8 +94,15 @@ class TestProfileRead(unittest.TestCase):
             var[:] = 1
             dataset.product = self.product
 
-        profile = main.ProfileSelection([self.path], "product")
-        profile.render(self.product, "stats_variable", "metric", "area", times)
+        profile = main.ProfileSelection()
+        profile.render(
+            [self.path],
+            "product",
+            self.product,
+            "stats_variable",
+            "metric",
+            "area",
+            times)
         result = profile.circle_source.data
         expect = {
             "x": [1.],
@@ -119,8 +127,15 @@ class TestProfileRead(unittest.TestCase):
             var[:] = 1
             dataset.product = "B"
 
-        profile = main.ProfileSelection([self.path], "product")
-        profile.render("A", "stats_variable", "metric", "area", times)
+        profile = main.ProfileSelection()
+        profile.render(
+            [self.path],
+            "product",
+            "A",
+            "stats_variable",
+            "metric",
+            "area",
+            times)
         result = profile.circle_source.data
         expect = {
             "x": [],
@@ -147,8 +162,15 @@ class TestProfileRead(unittest.TestCase):
             var = statistics.variable("stats_variable")
             var[:] = [[1, 1], [2, 2]]
             dataset.product = "product"
-        profile = main.ProfileSelection([self.path], "product")
-        profile.render("product", "stats_variable", "metric", "area", times)
+        profile = main.ProfileSelection()
+        profile.render(
+            [self.path],
+            "product",
+            "product",
+            "stats_variable",
+            "metric",
+            "area",
+            times)
         result = profile.circle_source.data
         expect = {
             "x": [1, 1, 2, 2],
@@ -390,3 +412,41 @@ class TestProfile(unittest.TestCase):
         result = main.time_mask(time_axis, times)
         expect = [True, False, True, True, True]
         np.testing.assert_array_equal(expect, result)
+
+
+class TestModel(unittest.TestCase):
+    def setUp(self):
+        self.stats_files = ["stats.nc"]
+        self.netcdf_attribute = "product"
+        self.model = main.Model(self.stats_files, self.netcdf_attribute)
+
+    def test_forecast_mode(self):
+        self.assertIsNone(self.model.forecast_mode)
+
+    def test_forecast_length(self):
+        self.assertIsNone(self.model.forecast_length)
+
+    def test_on_forecast_length_sets_property(self):
+        value = 36.
+        self.model.on_forecast_length(value)
+        self.assertEqual(self.model.forecast_length, value)
+
+    def test_on_forecast_length_notifies_listeners(self):
+        mock = unittest.mock.Mock()
+        self.model.register(mock)
+        self.model.on_forecast_length(12)
+        mock.update.assert_called_once_with(self.model)
+
+    def test_on_forecast_mode(self):
+        value = "persistence"
+        self.model.on_forecast_mode(value)
+
+    def test_stats_files(self):
+        result = self.model.stats_files
+        expect = self.stats_files
+        self.assertEqual(expect, result)
+
+    def test_netcdf_attribute(self):
+        result = self.model.netcdf_attribute
+        expect = self.netcdf_attribute
+        self.assertEqual(expect, result)

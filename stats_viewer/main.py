@@ -107,10 +107,12 @@ def main():
 
     dropdowns = []
 
-    model = Model()
+    model = Model(
+        env.stats_files,
+        env.attribute)
     picker.register(model)
 
-    view = View(
+    view = TimeSeries(
         env.stats_files,
         env.attribute,
         source,
@@ -167,8 +169,6 @@ def main():
     model.register(profile)
 
     profile_selection = ProfileSelection(
-        env.stats_files,
-        env.attribute,
         figure=profile_figure)
     model.register(profile_selection)
 
@@ -189,18 +189,42 @@ def main():
     ]
     table = bokeh.models.DataTable(
         columns=columns,
-        source=profile_selection.circle_source)
+        source=profile_selection.circle_source,
+        width=960)
 
-    row = bokeh.layouts.row(dropdowns, sizing_mode="scale_width")
+    # Delete button
+    def on_click():
+        print(profile_selection.circle_source.data)
+
+    button = bokeh.models.Button()
+    button.on_click(on_click)
+
+    # Forecast navigation
+    dropdown = bokeh.models.Dropdown(
+        menu=[("Forecast", "forecast")],
+        label="Forecast mode")
+    slider = bokeh.models.Slider(
+        start=12,
+        end=108,
+        value=12,
+        step=24,
+        title="Forecast length")
+
     document = bokeh.plotting.curdoc()
     document.title = "CMEMS Product quality statistics"
-    document.add_root(row)
+    document.add_root(bokeh.layouts.row(
+        dropdowns,
+        sizing_mode="scale_width"))
+    document.add_root(bokeh.layouts.row(
+        [dropdown, slider],
+        sizing_mode="scale_width"))
     document.add_root(figure)
     document.add_root(bokeh.layouts.row(
         profile_figure,
         leadtime_figure,
         sizing_mode="scale_width"))
-    document.add_root(bokeh.layouts.row(
+    document.add_root(bokeh.layouts.column(
+        button,
         table,
         sizing_mode="scale_width"))
 
@@ -299,13 +323,9 @@ class Profile(object):
 
 class ProfileSelection(object):
     def __init__(self,
-                 stats_files,
-                 netcdf_attribute,
                  figure=None,
                  multiline_glyph=None,
                  circle_glyph=None):
-        self.stats_files = stats_files
-        self.netcdf_attribute = netcdf_attribute
         if figure is None:
             figure = bokeh.plotting.figure()
         self.figure = figure
@@ -355,13 +375,22 @@ class ProfileSelection(object):
                 "metric",
                 "region"]]):
             self.render(
+                model.stats_files,
+                model.netcdf_attribute,
                 model.experiment,
                 model.variable,
                 model.metric,
                 model.region,
                 model.times)
 
-    def render(self, experiment, variable, metric, region, times):
+    def render(self,
+               stats_files,
+               netcdf_attribute,
+               experiment,
+               variable,
+               metric,
+               region,
+               times):
         if len(times) == 0:
             self.multiline_source.data = {
                 "xs": [],
@@ -375,8 +404,8 @@ class ProfileSelection(object):
             return
 
         for path in select(
-                self.stats_files,
-                self.netcdf_attribute,
+                stats_files,
+                netcdf_attribute,
                 experiment):
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
@@ -423,12 +452,16 @@ def time_mask(time_axis, times):
 
 
 class Model(Observable):
-    def __init__(self):
+    def __init__(self, stats_files, netcdf_attribute):
+        self.stats_files = stats_files
+        self.netcdf_attribute = netcdf_attribute
         self.experiment = None
         self.metric = None
         self.variable = None
         self.region = None
         self.times = None
+        self.forecast_mode = None
+        self.forecast_length = None
         super().__init__()
 
     def on_experiment(self, value):
@@ -445,6 +478,14 @@ class Model(Observable):
 
     def on_region(self, value):
         self.region = value
+        self.notify(self)
+
+    def on_forecast_length(self, value):
+        self.forecast_length = value
+        self.notify(self)
+
+    def on_forecast_mode(self, value):
+        self.forecast_mode = value
         self.notify(self)
 
     def update(self, times):
@@ -501,7 +542,7 @@ class Names(object):
         self.dropdown.menu = menu
 
 
-class View(object):
+class TimeSeries(object):
     def __init__(self,
                  stats_files,
                  netcdf_attribute,
