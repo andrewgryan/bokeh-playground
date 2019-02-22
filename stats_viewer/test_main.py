@@ -100,6 +100,8 @@ class TestProfileRead(unittest.TestCase):
             "stats_variable",
             "metric",
             "area",
+            "forecast",
+            12.,
             times)
         result = profile.circle_source.data
         expect = {
@@ -133,6 +135,8 @@ class TestProfileRead(unittest.TestCase):
             "stats_variable",
             "metric",
             "area",
+            "forecast",
+            12.,
             times)
         result = profile.circle_source.data
         expect = {

@@ -184,6 +184,7 @@ def main():
     dropdown = bokeh.models.Dropdown(
         menu=[("Forecast", "forecast")],
         label="Forecast mode")
+    dropdown.on_click(model.on_forecast_mode)
     slider = bokeh.models.Slider(
         start=12,
         end=132,
@@ -277,14 +278,20 @@ class Profile(object):
         self.figure.circle(x="x", y="y", source=source)
 
     def update(self, model):
+        if model.forecast_mode is None:
+            return
+        if model.forecast_length is None:
+            return
         if model.valid():
             self.render(
                 model.paths,
                 model.variable,
                 model.metric,
-                model.region)
+                model.region,
+                model.forecast_mode,
+                model.forecast_length)
 
-    def render(self, paths, variable, metric, region):
+    def render(self, paths, variable, metric, region, mode, length):
         for path in paths:
             with netCDF4.Dataset(path) as dataset:
                 var = dataset.variables[variable]
@@ -292,9 +299,13 @@ class Profile(object):
                     y = [0]
                 else:
                     y = dataset.variables["depths"][:]
-                mi = index(dataset.variables["metric_names"][:], metric)
-                ai = index(dataset.variables["area_names"][:], region)
-                x = var[:, 0, :, mi, ai]
+                x = read(
+                    dataset,
+                    variable,
+                    metric,
+                    region,
+                    mode,
+                    length)
                 x = x.mean(axis=0)
                 self.source.data = {
                     "x": x,
@@ -355,12 +366,16 @@ class ProfileSelection(object):
                 "times",
                 "variable",
                 "metric",
-                "region"]]):
+                "region",
+                "forecast_mode",
+                "forecast_length"]]):
             self.render(
                 model.paths,
                 model.variable,
                 model.metric,
                 model.region,
+                model.forecast_mode,
+                model.forecast_length,
                 model.times)
 
     def render(self,
@@ -368,6 +383,8 @@ class ProfileSelection(object):
                variable,
                metric,
                region,
+               forecast_mode,
+               forecast_length,
                times):
         if len(times) == 0:
             self.multiline_source.data = {
@@ -389,13 +406,16 @@ class ProfileSelection(object):
                 else:
                     z = dataset.variables["depths"][:]
                     z[np.isinf(z)] = 2000.
+                fi = (
+                    (dataset.variables["forecasts"][:] == forecast_length) &
+                    (read_names(dataset, "forecast_names") == forecast_mode))
                 mi = index(dataset.variables["metric_names"][:], metric)
                 ai = index(dataset.variables["area_names"][:], region)
                 dataset_times = netCDF4.num2date(
                     dataset.variables["time"][:],
                     units=dataset.variables["time"].units)
                 ti = time_mask(dataset_times, times)
-                lines = var[ti, 0, :, mi, ai]
+                lines = var[ti, fi, :, mi, ai]
                 xs, ys = [], []
                 for line in lines:
                     xs.append(line.tolist())
@@ -461,6 +481,7 @@ class Model(Observable):
         self.notify(self)
 
     def on_forecast_mode(self, value):
+        print("forecast mode: {}".format(value))
         self.forecast_mode = value
         self.notify(self)
 
@@ -526,6 +547,7 @@ class TimeSeries(object):
                 model.variable,
                 model.metric,
                 model.region,
+                model.forecast_mode,
                 model.forecast_length)
             self.source.data = {
                 "x": x,
@@ -540,7 +562,7 @@ class TimeSeries(object):
             self.label.text = "Invalid menu combination"
 
     @staticmethod
-    def read(paths, variable, metric, area, forecast_length):
+    def read(paths, variable, metric, area, forecast_mode, forecast_length):
         ys = []
         xs = []
         for path in paths:
@@ -548,12 +570,13 @@ class TimeSeries(object):
                 print("reading: {}".format(path))
                 var = dataset.variables["time"]
                 times = netCDF4.num2date(var[:], units=var.units)
-                mi = index(dataset.variables["metric_names"][:], metric)
-                ai = index(dataset.variables["area_names"][:], area)
-                fi = (
-                    (dataset.variables["forecasts"][:] == forecast_length) &
-                    (read_names(dataset, "forecast_names") == "forecast"))
-                values = dataset.variables[variable][:, fi, 0, mi, ai]
+                values = read(
+                    dataset,
+                    variable,
+                    metric,
+                    area,
+                    forecast_mode,
+                    forecast_length)[:, 0]
             xs.append(times)
             ys.append(values)
         x = np.ma.concatenate(xs)
@@ -658,6 +681,14 @@ def remove_statistic(
 def read_names(dataset, variable):
     return np.char.strip(netCDF4.chartostring(dataset.variables[variable][:]))
 
+
+def read(dataset, variable, metric, area, forecast_mode, forecast_length):
+    mi = index(dataset.variables["metric_names"][:], metric)
+    ai = index(dataset.variables["area_names"][:], area)
+    fi = (
+        (dataset.variables["forecasts"][:] == forecast_length) &
+        (read_names(dataset, "forecast_names") == forecast_mode))
+    return dataset.variables[variable][:, fi, :, mi, ai]
 
 
 if __name__.startswith('bk'):
