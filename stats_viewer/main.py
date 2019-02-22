@@ -190,6 +190,7 @@ def main():
         value=12,
         step=24,
         title="Forecast length")
+    slider.on_change("value", model.on_forecast_length)
 
     document = bokeh.plotting.curdoc()
     document.title = "CMEMS Product quality statistics"
@@ -468,8 +469,9 @@ class Model(Observable):
         self.region = value
         self.notify(self)
 
-    def on_forecast_length(self, value):
-        self.forecast_length = value
+    def on_forecast_length(self, attr, old, new):
+        print("forecast length: {}".format(new))
+        self.forecast_length = new
         self.notify(self)
 
     def on_forecast_mode(self, value):
@@ -527,7 +529,7 @@ class TimeSeries(object):
         self.label = label
 
     def update(self, model):
-        if model.valid():
+        if model.valid() and (model.forecast_length is not None):
             self.render(model)
 
     def render(self, model):
@@ -538,7 +540,8 @@ class TimeSeries(object):
                 model.experiment),
                         model.variable,
                         model.metric,
-                        model.region)
+                        model.region,
+                        model.forecast_length)
             self.source.data = {
                 "x": x,
                 "y": y
@@ -552,7 +555,7 @@ class TimeSeries(object):
             self.label.text = "Invalid menu combination"
 
     @staticmethod
-    def read(paths, variable, metric, area):
+    def read(paths, variable, metric, area, forecast_length):
         ys = []
         xs = []
         for path in paths:
@@ -562,7 +565,10 @@ class TimeSeries(object):
                 times = netCDF4.num2date(var[:], units=var.units)
                 mi = index(dataset.variables["metric_names"][:], metric)
                 ai = index(dataset.variables["area_names"][:], area)
-                values = dataset.variables[variable][:, 0, 0, mi, ai]
+                fi = (
+                    (dataset.variables["forecasts"][:] == forecast_length) &
+                    (read_names(dataset, "forecast_names") == "forecast"))
+                values = dataset.variables[variable][:, fi, 0, mi, ai]
             xs.append(times)
             ys.append(values)
         x = np.ma.concatenate(xs)

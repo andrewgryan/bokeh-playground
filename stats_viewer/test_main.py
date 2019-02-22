@@ -439,14 +439,15 @@ class TestModel(unittest.TestCase):
         self.assertIsNone(self.model.forecast_length)
 
     def test_on_forecast_length_sets_property(self):
-        value = 36.
-        self.model.on_forecast_length(value)
-        self.assertEqual(self.model.forecast_length, value)
+        attr, old, new = None, None, 36.
+        self.model.on_forecast_length(attr, old, new)
+        self.assertEqual(self.model.forecast_length, new)
 
     def test_on_forecast_length_notifies_listeners(self):
+        attr, old, new = None, None, 12
         mock = unittest.mock.Mock()
         self.model.register(mock)
-        self.model.on_forecast_length(12)
+        self.model.on_forecast_length(attr, old, new)
         mock.update.assert_called_once_with(self.model)
 
     def test_on_forecast_mode(self):
