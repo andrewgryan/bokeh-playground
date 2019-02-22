@@ -175,9 +175,18 @@ def main():
 
     # Delete button
     def on_click():
-        print(profile_selection.circle_source.data)
+        print(
+            model.experiment.strip(),
+            model.region.strip(),
+            model.metric.strip(),
+            model.forecast_mode.strip(),
+            model.forecast_length)
+        pts = profile_selection.circle_source.selected.indices
+        print(
+            profile_selection.circle_source.data["t"][pts])
 
-    button = bokeh.models.Button()
+    button = bokeh.models.Button(
+        label="Delete selected values")
     button.on_click(on_click)
 
     # Forecast navigation
