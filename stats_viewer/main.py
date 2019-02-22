@@ -56,7 +56,6 @@ class TimePicker(Observable):
 
     def on_selection_change(self, attr, old, new):
         times = self.source.data['x'][new]
-        print(times, self.subscribers)
         self.notify(times)
 
 
@@ -175,15 +174,39 @@ def main():
 
     # Delete button
     def on_click():
-        print(
-            model.experiment.strip(),
-            model.region.strip(),
-            model.metric.strip(),
-            model.forecast_mode.strip(),
-            model.forecast_length)
+        experiment = model.experiment.strip()
+        variable = model.variable.strip()
+        region = model.region.strip()
+        metric = model.metric.strip()
+        variable = model.variable.strip()
+        forecast_mode = model.forecast_mode.strip()
+        forecast_length = model.forecast_length
+        print("Deleting selected statistics:\n")
+        print("\t".join([
+            experiment,
+            variable,
+            region,
+            metric,
+            forecast_mode,
+            str(forecast_length)]))
         pts = profile_selection.circle_source.selected.indices
-        print(
-            profile_selection.circle_source.data["t"][pts])
+        times = profile_selection.circle_source.data["t"][pts]
+        count = 0
+        for path in model.paths:
+            print("+ editing: {}".format(path))
+            with netCDF4.Dataset(path, "r+") as dataset:
+                for time in times:
+                    print("- deleting: {}".format(time))
+                    remove_statistic(
+                        dataset,
+                        variable,
+                        forecast_mode,
+                        forecast_length,
+                        metric,
+                        region,
+                        time)
+                    count += 1
+        print("finished {} deletions".format(count))
 
     button = bokeh.models.Button(
         label="Delete selected values")
@@ -485,17 +508,14 @@ class Model(Observable):
         self.notify(self)
 
     def on_forecast_length(self, attr, old, new):
-        print("forecast length: {}".format(new))
         self.forecast_length = new
         self.notify(self)
 
     def on_forecast_mode(self, value):
-        print("forecast mode: {}".format(value))
         self.forecast_mode = value
         self.notify(self)
 
     def update(self, times):
-        print("update", times)
         self.times = times
         self.notify(self)
 
@@ -612,7 +632,7 @@ class Title(object):
             words.append(getattr(model, attr).strip())
         self.title.text = "\n".join(words)
         words = []
-        for attr in ["variable", "metric", "region", "forecast_length"]:
+        for attr in ["variable", "metric", "region", "forecast_mode", "forecast_length"]:
             if getattr(model, attr) is None:
                 continue
             words.append(str(getattr(model, attr)).strip())
@@ -656,9 +676,11 @@ def find_variables(paths):
 
 def select(paths, attr, value):
     for path in paths:
+        # Note: continue statement used to close Dataset prior to yield
         with netCDF4.Dataset(path) as dataset:
-            if getattr(dataset, attr) == value:
-                yield path
+            if getattr(dataset, attr) != value:
+                continue
+        yield path
 
 
 def index(chars, item):
@@ -670,16 +692,16 @@ def index(chars, item):
 def remove_statistic(
         dataset,
         variable,
-        forecast_name,
-        forecast,
+        forecast_mode,
+        forecast_length,
         metric,
         area,
         time):
     var = dataset.variables["time"]
     ti = netCDF4.num2date(var[:], units=var.units) == time
     fi = (
-        (dataset.variables["forecasts"][:] == forecast) &
-        (read_names(dataset, "forecast_names") == forecast_name))
+        (dataset.variables["forecasts"][:] == forecast_length) &
+        (read_names(dataset, "forecast_names") == forecast_mode))
     mi = read_names(dataset, "metric_names") == metric
     ai = read_names(dataset, "area_names") == area
     pts = (ti, fi, slice(None), mi, ai)
