@@ -111,19 +111,26 @@ class Controller(object):
 
 
 def unlocked_task(executor, blocking_task, document, source, label):
+    load_label = LoadLabel(label)
     @gen.coroutine
     @without_document_lock
     def task():
-        document.add_next_tick_callback(partial(set_text, label, "Loading"))
+        document.add_next_tick_callback(load_label.render("Loading"))
         data = yield executor.submit(blocking_task)
         document.add_next_tick_callback(partial(set_data, source, data))
-        document.add_next_tick_callback(partial(set_text, label, ""))
+        document.add_next_tick_callback(load_label.render(""))
     return task
 
 
-@gen.coroutine
-def set_text(label, text):
-    label.text = text
+class LoadLabel(object):
+    def __init__(self, label):
+        self.label = label
+
+    def render(self, text):
+        @gen.coroutine
+        def task():
+            self.label.text = text
+        return task
 
 
 @gen.coroutine
