@@ -27,15 +27,6 @@ def main():
     figure = full_screen_figure(
         lon_range=(-20, 60),
         lat_range=(-30, 20))
-    x, y = transform(0, 0,
-                     cartopy.crs.PlateCarree(),
-                     cartopy.crs.Mercator.GOOGLE)
-    label = bokeh.models.Label(
-        x=x[0],
-        y=y[0],
-        text="")
-    figure.add_layout(label)
-
     source = bokeh.models.ColumnDataSource({
         "x": [],
         "y": [],
@@ -60,21 +51,22 @@ def main():
     document = bokeh.plotting.curdoc()
     document.add_root(figure)
 
+    messenger = Messenger(figure)
     controller = Controller(
         document,
         source,
-        label)
+        messenger)
     document.add_root(bokeh.layouts.column(
         *controller.buttons,
         name="controls"))
 
 
 class Controller(object):
-    def __init__(self, document, source, label):
+    def __init__(self, document, source, messenger):
         self.executor = ThreadPoolExecutor(max_workers=2)
         self.document = document
         self.source = source
-        self.label = label
+        self.messenger = messenger
         self.i = None
         next_button = bokeh.models.Button(label="Next")
         next_button.on_click(self.on_next)
@@ -107,30 +99,45 @@ class Controller(object):
                 blocking_task,
                 self.document,
                 self.source,
-                self.label))
+                self.messenger))
 
 
-def unlocked_task(executor, blocking_task, document, source, label):
-    load_label = LoadLabel(label)
+def unlocked_task(executor, blocking_task, document, source, messenger):
     @gen.coroutine
     @without_document_lock
     def task():
-        document.add_next_tick_callback(load_label.render("Loading"))
+        document.add_next_tick_callback(messenger.on_load)
         data = yield executor.submit(blocking_task)
         document.add_next_tick_callback(partial(set_data, source, data))
-        document.add_next_tick_callback(load_label.render(""))
+        document.add_next_tick_callback(messenger.on_complete)
     return task
 
 
-class LoadLabel(object):
-    def __init__(self, label):
-        self.label = label
+class Messenger(object):
+    def __init__(self, figure):
+        self.figure = figure
+        self.label = bokeh.models.Label(
+            x=0,
+            y=0,
+            text="")
+        self.figure.add_layout(self.label)
+
+    @gen.coroutine
+    def on_load(self):
+        self.render("Loading...")
+
+    @gen.coroutine
+    def on_complete(self):
+        self.render("")
 
     def render(self, text):
-        @gen.coroutine
-        def task():
-            self.label.text = text
-        return task
+        self.label.x = (
+            self.figure.x_range.start +
+            self.figure.x_range.end) / 2
+        self.label.y = (
+            self.figure.y_range.start +
+            self.figure.y_range.end) / 2
+        self.label.text = text
 
 
 @gen.coroutine
