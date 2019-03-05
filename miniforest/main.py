@@ -31,7 +31,7 @@ def main():
     label = bokeh.models.Label(
         x=x[0],
         y=y[0],
-        text="Loading data")
+        text="")
     figure.add_layout(label)
 
     source = bokeh.models.ColumnDataSource({
@@ -60,16 +60,23 @@ def main():
 
     executor = ThreadPoolExecutor(max_workers=2)
     document.add_next_tick_callback(
-        make_unlocked_task(executor, document, source))
+        unlocked_task(executor, document, source, label))
 
 
-def make_unlocked_task(executor, document, source):
+def unlocked_task(executor, document, source, label):
     @gen.coroutine
     @without_document_lock
-    def unlocked_task():
+    def task():
+        document.add_next_tick_callback(partial(set_text, label, "Loading"))
         data = yield executor.submit(blocking_task)
         document.add_next_tick_callback(partial(locked_update, source, data))
-    return unlocked_task
+        document.add_next_tick_callback(partial(set_text, label, ""))
+    return task
+
+
+@gen.coroutine
+def set_text(label, text):
+    label.text = text
 
 
 @gen.coroutine
