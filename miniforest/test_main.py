@@ -21,6 +21,7 @@ class TestEnvironment(unittest.TestCase):
         self.assertEqual(expect, result)
 
 
+@unittest.skip("dead code")
 class TestUMFile(unittest.TestCase):
     """
     dimensions:

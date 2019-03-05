@@ -24,7 +24,9 @@ def parse_env():
 
 
 def main():
-    figure = full_screen_figure()
+    figure = full_screen_figure(
+        lon_range=(-20, 60),
+        lat_range=(-30, 20))
     x, y = transform(0, 0,
                      cartopy.crs.PlateCarree(),
                      cartopy.crs.Mercator.GOOGLE)
@@ -58,18 +60,63 @@ def main():
     document = bokeh.plotting.curdoc()
     document.add_root(figure)
 
-    executor = ThreadPoolExecutor(max_workers=2)
-    document.add_next_tick_callback(
-        unlocked_task(executor, document, source, label))
+    controller = Controller(
+        document,
+        source,
+        label)
+    document.add_root(bokeh.layouts.column(
+        *controller.buttons,
+        name="controls"))
 
 
-def unlocked_task(executor, document, source, label):
+class Controller(object):
+    def __init__(self, document, source, label):
+        self.executor = ThreadPoolExecutor(max_workers=2)
+        self.document = document
+        self.source = source
+        self.label = label
+        self.i = None
+        next_button = bokeh.models.Button(label="Next")
+        next_button.on_click(self.on_next)
+        prev_button = bokeh.models.Button(label="Previous")
+        prev_button.on_click(self.on_previous)
+        self.buttons = [
+            next_button,
+            prev_button
+        ]
+
+    def on_next(self):
+        if self.i is None:
+            self.i = 0
+        else:
+            self.i += 1
+        self.render()
+
+    def on_previous(self):
+        if self.i is None:
+            self.i = 0
+        else:
+            self.i -= 1
+        self.render()
+
+    def render(self):
+        blocking_task = partial(load_data, self.i)
+        self.document.add_next_tick_callback(
+            unlocked_task(
+                self.executor,
+                blocking_task,
+                self.document,
+                self.source,
+                self.label))
+
+
+def unlocked_task(executor, blocking_task, document, source, label):
     @gen.coroutine
     @without_document_lock
     def task():
         document.add_next_tick_callback(partial(set_text, label, "Loading"))
         data = yield executor.submit(blocking_task)
-        document.add_next_tick_callback(partial(locked_update, source, data))
+        document.add_next_tick_callback(partial(set_data, source, data))
         document.add_next_tick_callback(partial(set_text, label, ""))
     return task
 
@@ -80,19 +127,19 @@ def set_text(label, text):
 
 
 @gen.coroutine
-def locked_update(source, data):
+def set_data(source, data):
     """locked update to safely modify document objects"""
     source.data = data
 
 
-def blocking_task():
+def load_data(i):
     path = (
         "/data/local/frrn/buckets/stephen-sea-public-london/model_data/"
         "highway_takm4p4_20190304T0000Z.nc")
     with netCDF4.Dataset(path) as dataset:
         lons = dataset.variables["longitude_0"][:]
         lats = dataset.variables["latitude_0"][:]
-        values = dataset.variables["stratiform_rainfall_rate"][0]
+        values = dataset.variables["stratiform_rainfall_rate"][i]
         image = np.ma.masked_array(values, values == 0.)
         gx, _ = transform(
             lons,
@@ -118,23 +165,9 @@ def blocking_task():
     return data
 
 
-class UM(object):
-    def __init__(self, dataset):
-        self.dataset = dataset
-
-    def longitudes(self):
-        return self.dataset.variables["longitude_0"][:]
-
-    def latitudes(self):
-        return self.dataset.variables["latitude_0"][:]
-
-    def values(self, variable):
-        return self.dataset.variables[variable][0, :]
-
-
-def full_screen_figure():
-    lon_range = [-180, 180]
-    lat_range = [-80, 80]
+def full_screen_figure(
+        lon_range=(-180, 180),
+        lat_range=(-80, 80)):
     x_range, y_range = transform(
         lon_range,
         lat_range,

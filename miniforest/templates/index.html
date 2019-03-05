@@ -1,8 +1,28 @@
+{% from macros import embed %}
 {% extends base %}
 {% block postamble %}
 <style>
     body {
         margin: 0;
     }
+    .control-panel {
+        position: absolute;
+        left: 0;
+        top: 0;
+        z-index: 2;
+        width: auto;
+    }
 </style>
+{% endblock %}
+{% block contents %}
+<div class="control-panel">
+    {% for doc in docs %}
+        {% for root in doc.roots %}
+            {% if root.name == "controls" %}
+                {{ embed(root) | indent(10) }}
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+</div>
+    {{ super() }}
 {% endblock %}
