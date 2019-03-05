@@ -1,8 +1,17 @@
 import asyncio
+import netCDF4
 import os
 import bokeh.plotting
+import bokeh.models
+import bokeh.colors
 import cartopy
 import numpy as np
+import time
+from threading import Thread
+from tornado import gen
+from functools import partial
+from bokeh.document import without_document_lock
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Environment(object):
@@ -19,22 +28,87 @@ def main():
     x, y = transform(0, 0,
                      cartopy.crs.PlateCarree(),
                      cartopy.crs.Mercator.GOOGLE)
-    print(x, y)
     label = bokeh.models.Label(
         x=x[0],
         y=y[0],
         text="Loading data")
     figure.add_layout(label)
+
+    source = bokeh.models.ColumnDataSource({
+        "x": [],
+        "y": [],
+        "dw": [],
+        "dh": [],
+        "image": []
+    })
+    color_mapper = bokeh.models.LinearColorMapper(
+        palette="Viridis256",
+        nan_color=bokeh.colors.RGB(0, 0, 0, a=0)
+    )
+
+    figure.image(
+        x="x",
+        y="y",
+        dw="dw",
+        dh="dh",
+        image="image",
+        source=source,
+        color_mapper=color_mapper)
+
     document = bokeh.plotting.curdoc()
     document.add_root(figure)
-    document.add_next_tick_callback(next_tick(label))
+
+    executor = ThreadPoolExecutor(max_workers=2)
+    document.add_next_tick_callback(
+        make_unlocked_task(executor, document, source))
 
 
-def next_tick(label):
-    async def callback():
-        await asyncio.sleep(10)
-        label.text = "Next tick finished"
-    return callback
+def make_unlocked_task(executor, document, source):
+    @gen.coroutine
+    @without_document_lock
+    def unlocked_task():
+        data = yield executor.submit(blocking_task)
+        document.add_next_tick_callback(partial(locked_update, source, data))
+    return unlocked_task
+
+
+@gen.coroutine
+def locked_update(source, data):
+    """locked update to safely modify document objects"""
+    source.data = data
+
+
+def blocking_task():
+    path = (
+        "/data/local/frrn/buckets/stephen-sea-public-london/model_data/"
+        "highway_takm4p4_20190304T0000Z.nc")
+    with netCDF4.Dataset(path) as dataset:
+        lons = dataset.variables["longitude_0"][:]
+        lats = dataset.variables["latitude_0"][:]
+        values = dataset.variables["stratiform_rainfall_rate"][0]
+        image = np.ma.masked_array(values, values == 0.)
+        gx, _ = transform(
+            lons,
+            np.zeros(len(lons), dtype="d"),
+            cartopy.crs.PlateCarree(),
+            cartopy.crs.Mercator.GOOGLE)
+        _, gy = transform(
+            np.zeros(len(lats), dtype="d"),
+            lats,
+            cartopy.crs.PlateCarree(),
+            cartopy.crs.Mercator.GOOGLE)
+        x = gx.min()
+        y = gy.min()
+        dw = gx.max() - gx.min()
+        dh = gy.max() - gy.min()
+    data = {
+        "x": [x],
+        "y": [y],
+        "dw": [dw],
+        "dh": [dh],
+        "image": [image]
+    }
+    return data
 
 
 class UM(object):
