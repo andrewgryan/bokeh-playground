@@ -2,6 +2,17 @@ import bokeh.plotting
 import bokeh.models
 
 
+class Write(object):
+    def __init__(self, div, text, history):
+        self.div = div
+        self.text = text
+        self.history = history
+
+    def execute(self):
+        self.div.text = self.text
+        self.history.texts.append(self.text)
+
+
 class History(object):
     def __init__(self):
         self.texts = []
@@ -11,9 +22,8 @@ def main():
     history = History()
 
     div = bokeh.models.Div()
-    text = "Hello, world!"
-    div.text = text
-    history.texts.append(text)
+    command = Write(div, "Hello, world!", history)
+    command.execute()
 
     dropdown = bokeh.models.Dropdown(
         label="Choices",
@@ -37,8 +47,8 @@ def main():
 
 def on_change(div, history):
     def wrapped(attr, old, new):
-        div.text = new
-        history.texts.append(new)
+        command = Write(div, new, history)
+        command.execute()
     return wrapped
 
 
