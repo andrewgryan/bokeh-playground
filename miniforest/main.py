@@ -60,6 +60,14 @@ def main():
         *controller.buttons,
         name="controls"))
 
+    title = Title(figure)
+    title.render()
+
+
+class Model(object):
+    def __init__(self):
+        pass
+
 
 class Controller(object):
     def __init__(self, document, source, messenger):
@@ -113,13 +121,41 @@ def unlocked_task(executor, blocking_task, document, source, messenger):
     return task
 
 
+@gen.coroutine
+def set_data(source, data):
+    """locked update to safely modify document objects"""
+    source.data = data
+
+
+class Title(object):
+    def __init__(self, figure):
+        self.figure = figure
+        self.label = bokeh.models.Label(
+            x=0,
+            y=0,
+            text="",
+            text_font_style="bold")
+        self.figure.add_layout(self.label)
+
+    def render(self):
+        self.label.x = (
+            self.figure.x_range.start +
+            self.figure.x_range.end) / 2
+        dy = 0.975
+        self.label.y = (
+            (1 - dy) * self.figure.y_range.start +
+            dy * self.figure.y_range.end)
+        self.label.text = "Hello, title!"
+
+
 class Messenger(object):
     def __init__(self, figure):
         self.figure = figure
         self.label = bokeh.models.Label(
             x=0,
             y=0,
-            text="")
+            text="",
+            text_font_style="bold")
         self.figure.add_layout(self.label)
 
     @gen.coroutine
@@ -134,16 +170,11 @@ class Messenger(object):
         self.label.x = (
             self.figure.x_range.start +
             self.figure.x_range.end) / 2
+        dy = 0.75
         self.label.y = (
-            self.figure.y_range.start +
-            self.figure.y_range.end) / 2
+            (1 - dy) * self.figure.y_range.start +
+            dy * self.figure.y_range.end)
         self.label.text = text
-
-
-@gen.coroutine
-def set_data(source, data):
-    """locked update to safely modify document objects"""
-    source.data = data
 
 
 def load_data(i):
