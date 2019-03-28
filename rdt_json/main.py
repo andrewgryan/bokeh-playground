@@ -39,9 +39,9 @@ def main():
     # Make pretty polygons
     color_mapper = bokeh.models.LinearColorMapper(palette=bokeh.palettes.Viridis6)
     source = bokeh.models.GeoJSONDataSource(geojson=geojson)
-    figure.multi_line(xs='xs', ys='ys',
+    figure.patches(xs='xs', ys='ys',
                       line_width=2,
-        line_color={'field': 'NumIdCell', 'transform': color_mapper},
+        fill_color={'field': 'PhaseLife', 'transform': color_mapper},
         source=source)
 
     document = bokeh.plotting.curdoc()
