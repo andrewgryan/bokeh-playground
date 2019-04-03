@@ -176,6 +176,21 @@ def main():
         color_mapper.low = low
         color_mapper.high = high
 
+    low_input = bokeh.models.TextInput(title="Low:")
+    low_input.on_change(
+            "value",
+            change(color_mapper, "low", float))
+    color_mapper.on_change(
+            "low",
+            change(low_input, "value", str))
+    high_input = bokeh.models.TextInput(title="High:")
+    high_input.on_change(
+            "value",
+            change(color_mapper, "high", float))
+    color_mapper.on_change(
+            "high",
+            change(high_input, "value", str))
+
     for source in sources:
         source.on_change("data", on_change)
 
@@ -193,6 +208,7 @@ def main():
             bokeh.layouts.row(slider),
             bokeh.layouts.row(variables_drop),
             bokeh.layouts.row(palettes_drop),
+            bokeh.layouts.row(low_input, high_input),
             name="controls"))
     document.add_root(figure)
 
@@ -201,6 +217,16 @@ def change_label(widget):
     def wrapped(value):
         widget.label = str(value)
     return wrapped
+
+
+def change(widget, prop, dtype):
+    def wrapper(attr, old, new):
+        if old == new:
+            return
+        if getattr(widget, prop) == dtype(new):
+            return
+        setattr(widget, prop, dtype(new))
+    return wrapper
 
 
 def load_variables(path):
