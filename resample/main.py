@@ -21,29 +21,63 @@ def main():
         y_range=y_range,
         x_axis_type="mercator",
         y_axis_type="mercator",
-        active_scroll="wheel_zoom",
-        sizing_mode="stretch_both")
+        active_scroll="wheel_zoom")
     tile = bokeh.models.WMTSTileSource(
         url="https://maps.wikimedia.org/osm-intl/{Z}/{X}/{Y}.png",
         attribution=""
     )
-    for f in [figure]:
+    figures = [figure]
+    for _ in range(2):
+        f = bokeh.plotting.figure(
+            x_range=figure.x_range,
+            y_range=figure.y_range,
+            x_axis_type="mercator",
+            y_axis_type="mercator",
+            active_scroll="wheel_zoom")
+        figures.append(f)
+
+    for f in figures:
         f.axis.visible = False
         f.toolbar.logo = None
         f.toolbar_location = None
         f.min_border = 0
         f.add_tile(tile)
 
+    figure_row = bokeh.layouts.row(*figures,
+            sizing_mode="stretch_both")
+    figure_row.children = [figures[0]]  # Trick to keep correct sizing modes
+
+    figure_drop = bokeh.models.Dropdown(
+            label="Figure",
+            menu=[(str(i), str(i)) for i in [1, 2, 3]])
+
+    def on_click(value):
+        if int(value) == 1:
+            figure_row.children = [
+                    figures[0]]
+        elif int(value) == 2:
+            figure_row.children = [
+                    figures[0],
+                    figures[1]]
+        elif int(value) == 3:
+            figure_row.children = [
+                    figures[0],
+                    figures[1],
+                    figures[2]]
+
+    figure_drop.on_click(on_click)
+
     color_mapper = bokeh.models.LinearColorMapper(
             palette=bokeh.palettes.Plasma[256])
-    colorbar = bokeh.models.ColorBar(
-        color_mapper=color_mapper,
-        orientation="horizontal",
-        background_fill_alpha=0.,
-        location="bottom_center",
-        major_tick_line_color="black",
-        bar_line_color="black")
-    figure.add_layout(colorbar, 'center')
+    for figure in figures:
+        colorbar = bokeh.models.ColorBar(
+            color_mapper=color_mapper,
+            orientation="horizontal",
+            background_fill_alpha=0.,
+            location="bottom_center",
+            major_tick_line_color="black",
+            bar_line_color="black")
+        figure.add_layout(colorbar, 'center')
 
     pattern = "/Users/andrewryan/cache/highway_*.nc"
     renderers = []
@@ -57,15 +91,18 @@ def main():
             "dh": [],
             "image": []})
         sources.append(source)
-        renderer = figure.image(
-                x="x",
-                y="y",
-                dw="dw",
-                dh="dh",
-                image="image",
-                source=source,
-                color_mapper=color_mapper)
-        renderers.append(renderer)
+        sub_renderers = []
+        for figure in figures:
+            renderer = figure.image(
+                    x="x",
+                    y="y",
+                    dw="dw",
+                    dh="dh",
+                    image="image",
+                    source=source,
+                    color_mapper=color_mapper)
+            sub_renderers.append(renderer)
+        renderers.append(sub_renderers)
         source.data = load_image(path, "relative_humidity")
 
     def get_name(path):
@@ -84,16 +121,20 @@ def main():
     def on_change(attr, old, new):
         for i in old:
             if i not in new:
-                renderers[i].visible = False
+                for r in renderers[i]:
+                    r.visible = False
         for i in new:
             if i not in old:
-                renderers[i].visible = True
+                for r in renderers[i]:
+                    r.visible = True
 
     checkboxes.on_change("active", on_change)
 
-    features = [
-        add_feature(figure, cartopy.feature.BORDERS),
-        add_feature(figure, cartopy.feature.COASTLINE)]
+    features = []
+    for figure in figures:
+        features += [
+            add_feature(figure, cartopy.feature.BORDERS),
+            add_feature(figure, cartopy.feature.COASTLINE)]
     toggle = bokeh.models.CheckboxButtonGroup(
             labels=["Coastlines"],
             active=[0],
@@ -127,10 +168,11 @@ def main():
         start=0,
         end=1,
         step=0.1,
-        value=0.7,
+        value=1.0,
         show_value=False)
+    print(sum(renderers, []))
     custom_js = bokeh.models.CustomJS(
-            args=dict(renderers=renderers),
+            args=dict(renderers=sum(renderers, [])),
             code="""
             renderers.forEach(function (r) {
                 r.glyph.global_alpha = cb_obj.value
@@ -176,14 +218,19 @@ def main():
         color_mapper.low = low
         color_mapper.high = high
 
-    low_input = bokeh.models.TextInput(title="Low:")
+    input_width = 65
+    low_input = bokeh.models.TextInput(
+            title="Low:",
+            width=input_width)
     low_input.on_change(
             "value",
             change(color_mapper, "low", float))
     color_mapper.on_change(
             "low",
             change(low_input, "value", str))
-    high_input = bokeh.models.TextInput(title="High:")
+    high_input = bokeh.models.TextInput(
+            title="High:",
+            width=input_width)
     high_input.on_change(
             "value",
             change(color_mapper, "high", float))
@@ -195,22 +242,29 @@ def main():
         source.on_change("data", on_change)
 
     div = bokeh.models.Div(text="", width=10)
-    row = bokeh.layouts.row(
+    border_row = bokeh.layouts.row(
         bokeh.layouts.column(toggle),
         bokeh.layouts.column(div),
         bokeh.layouts.column(dropdown))
 
+    div = bokeh.models.Div(text="", width=10)
+    input_row = bokeh.layouts.row(
+        bokeh.layouts.column(low_input),
+        bokeh.layouts.column(div),
+        bokeh.layouts.column(high_input))
+
     document = bokeh.plotting.curdoc()
     document.add_root(
         bokeh.layouts.column(
-            row,
+            bokeh.layouts.row(figure_drop),
+            border_row,
             bokeh.layouts.row(checkboxes),
             bokeh.layouts.row(slider),
             bokeh.layouts.row(variables_drop),
             bokeh.layouts.row(palettes_drop),
-            bokeh.layouts.row(low_input, high_input),
+            input_row,
             name="controls"))
-    document.add_root(figure)
+    document.add_root(figure_row)
 
 
 def change_label(widget):
