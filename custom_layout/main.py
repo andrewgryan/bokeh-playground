@@ -1,18 +1,9 @@
 import bokeh.plotting
-from bokeh.core.properties import String, Instance
-from bokeh.models import Slider, LayoutDOM
-
-
-class Custom(LayoutDOM):
-    __implementation__ = "custom.ts"
-    text = String()
-    slider = Instance(Slider)
 
 
 class Application(object):
     def __init__(self):
         self.roots = []
-        button = bokeh.models.Button()
         figure = bokeh.plotting.figure()
         source = bokeh.models.ColumnDataSource({
             "x": [1, 2, 3],
@@ -39,18 +30,20 @@ class Application(object):
             source.change.emit()
             """)
         slider.js_on_change("value", custom_js)
-        custom = Custom(
-                text="Label",
-                slider=slider)
         column = bokeh.layouts.column(
                 bokeh.layouts.row(
-                    button),
-                bokeh.layouts.row(
-                    slider,
-                    custom),
+                    slider),
                 bokeh.layouts.row(
                     figure))
         self.roots.append(column)
+
+
+class EarthNetworks(object):
+    def __init__(self, pattern):
+        self.pattern = pattern
+
+    def load(self):
+        pass
 
 
 def main():
