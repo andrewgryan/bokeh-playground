@@ -36,6 +36,14 @@ def main():
 
     color_mapper = bokeh.models.LinearColorMapper(
             palette=bokeh.palettes.Plasma[256])
+    colorbar = bokeh.models.ColorBar(
+        color_mapper=color_mapper,
+        orientation="horizontal",
+        background_fill_alpha=0.,
+        location="bottom_center",
+        major_tick_line_color="black",
+        bar_line_color="black")
+    figure.add_layout(colorbar, 'center')
 
     pattern = "/Users/andrewryan/cache/highway_*.nc"
     renderers = []
@@ -102,10 +110,12 @@ def main():
     toggle.on_change("active", on_change)
 
     dropdown = bokeh.models.Dropdown(
+            label="Color",
             menu=[
                 ("Black", "black"),
                 ("White", "white")],
             width=50)
+    dropdown.on_click(change_label(dropdown))
 
     def on_click(value):
         for feature in features:
@@ -130,14 +140,44 @@ def main():
 
     variables = load_variables(paths[0])
     variables_drop = bokeh.models.Dropdown(
+            label="Variables",
             menu=[(v, v) for v in variables],
             width=50)
+    variables_drop.on_click(change_label(variables_drop))
 
     def on_click(value):
         for path, source in zip(paths, sources):
             source.data = load_image(path, value)
 
     variables_drop.on_click(on_click)
+
+    palettes = {
+            "Viridis": bokeh.palettes.Viridis[256],
+            "Magma": bokeh.palettes.Magma[256],
+            "Inferno": bokeh.palettes.Inferno[256],
+            "Plasma": bokeh.palettes.Plasma[256]
+    }
+    palettes_drop = bokeh.models.Dropdown(
+            label="Palettes",
+            menu=[(k, k) for k in palettes.keys()])
+
+    palettes_drop.on_click(change_label(palettes_drop))
+
+    def on_click(value):
+        color_mapper.palette = palettes[value]
+
+    palettes_drop.on_click(on_click)
+
+    def on_change(attr, old, new):
+        images = [source.data["image"][0]
+            for source in sources]
+        low = np.min([np.min(x) for x in images])
+        high = np.max([np.max(x) for x in images])
+        color_mapper.low = low
+        color_mapper.high = high
+
+    for source in sources:
+        source.on_change("data", on_change)
 
     div = bokeh.models.Div(text="", width=10)
     row = bokeh.layouts.row(
@@ -152,8 +192,15 @@ def main():
             bokeh.layouts.row(checkboxes),
             bokeh.layouts.row(slider),
             bokeh.layouts.row(variables_drop),
+            bokeh.layouts.row(palettes_drop),
             name="controls"))
     document.add_root(figure)
+
+
+def change_label(widget):
+    def wrapped(value):
+        widget.label = str(value)
+    return wrapped
 
 
 def load_variables(path):
