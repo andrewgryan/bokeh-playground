@@ -170,7 +170,6 @@ def main():
         step=0.1,
         value=1.0,
         show_value=False)
-    print(sum(renderers, []))
     custom_js = bokeh.models.CustomJS(
             args=dict(renderers=sum(renderers, [])),
             code="""
@@ -241,6 +240,42 @@ def main():
     for source in sources:
         source.on_change("data", on_change)
 
+    # LCR rows
+    def on_change(i):
+        def wrapper(attr, old, new):
+            rs = renderers[i]
+            for j in old:
+                if j not in new:
+                    rs[j].visible = False
+            for j in new:
+                if j not in old:
+                    rs[j].visible = True
+        return wrapper
+
+    rows = []
+    groups = []
+    for i in range(3):
+        group = bokeh.models.CheckboxButtonGroup(
+                labels=["L", "C", "R"])
+        group.on_change("active", on_change(i))
+        groups.append(group)
+        row = bokeh.layouts.row(group)
+        rows.append(row)
+    lcr_column = bokeh.layouts.column(*rows)
+
+    def on_click(value):
+        if int(value) == 1:
+            for g in groups:
+                g.labels = ["Select"]
+        elif int(value) == 2:
+            for g in groups:
+                g.labels = ["L", "R"]
+        elif int(value) == 3:
+            for g in groups:
+                g.labels = ["L", "C", "R"]
+
+    figure_drop.on_click(on_click)
+
     div = bokeh.models.Div(text="", width=10)
     border_row = bokeh.layouts.row(
         bokeh.layouts.column(toggle),
@@ -259,6 +294,7 @@ def main():
             bokeh.layouts.row(figure_drop),
             border_row,
             bokeh.layouts.row(checkboxes),
+            bokeh.layouts.row(lcr_column),
             bokeh.layouts.row(slider),
             bokeh.layouts.row(variables_drop),
             bokeh.layouts.row(palettes_drop),
