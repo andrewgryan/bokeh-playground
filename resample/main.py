@@ -114,21 +114,6 @@ def main():
             return "East Africa 4.4km"
 
     names = [get_name(path) for path in paths]
-    checkboxes = bokeh.models.CheckboxGroup(
-            labels=names,
-            active=[0, 1, 2])
-
-    def on_change(attr, old, new):
-        for i in old:
-            if i not in new:
-                for r in renderers[i]:
-                    r.visible = False
-        for i in new:
-            if i not in old:
-                for r in renderers[i]:
-                    r.visible = True
-
-    checkboxes.on_change("active", on_change)
 
     features = []
     for figure in figures:
@@ -240,46 +225,24 @@ def main():
     for source in sources:
         source.on_change("data", on_change)
 
-    # LCR rows
-    def on_change(i):
-        def wrapper(attr, old, new):
-            rs = renderers[i]
-            for j in old:
-                if j not in new:
-                    rs[j].visible = False
-            for j in new:
-                if j not in old:
-                    rs[j].visible = True
-        return wrapper
-
+    image_controls = ImageControls(names, renderers)
     rows = []
-    groups = []
-    for i in range(3):
-        div = bokeh.models.Div(text="", width=10)
-        drop = bokeh.models.Dropdown(
-                menu=[(n, n) for n in names],
-                label=names[i])
-        group = bokeh.models.CheckboxButtonGroup(
-                labels=["Show"],
-                width=50)
-        group.on_change("active", on_change(i))
-        groups.append(group)
-        row = bokeh.layouts.row(
-                bokeh.layouts.column(drop),
-                bokeh.layouts.column(div),
-                bokeh.layouts.column(group))
+    for drop, group in zip(
+            image_controls.drops,
+            image_controls.groups):
+        row = bokeh.layouts.row(drop, group)
         rows.append(row)
     lcr_column = bokeh.layouts.column(*rows)
 
     def on_click(value):
         if int(value) == 1:
-            for g in groups:
+            for g in image_controls.groups:
                 g.labels = ["Show"]
         elif int(value) == 2:
-            for g in groups:
+            for g in image_controls.groups:
                 g.labels = ["L", "R"]
         elif int(value) == 3:
-            for g in groups:
+            for g in image_controls.groups:
                 g.labels = ["L", "C", "R"]
 
     figure_drop.on_click(on_click)
@@ -301,14 +264,101 @@ def main():
         bokeh.layouts.column(
             bokeh.layouts.row(figure_drop),
             border_row,
-            bokeh.layouts.row(checkboxes),
-            bokeh.layouts.row(lcr_column),
+            lcr_column,
             bokeh.layouts.row(slider),
             bokeh.layouts.row(variables_drop),
             bokeh.layouts.row(palettes_drop),
             input_row,
             name="controls"))
     document.add_root(figure_row)
+
+
+class ImageControls(object):
+    def __init__(self, names, renderers):
+        self.names = names
+        self.renderers = renderers
+        self.state = [
+                (0, [True, False, False]),
+                (1, [True, False, False]),
+                (2, [True, False, False])]
+        self.previous_state = None
+        self.drops = []
+        self.groups = []
+        for i in range(3):
+            drop = bokeh.models.Dropdown(
+                    menu=[(n, n) for n in names],
+                    label=names[i],
+                    width=150)
+            drop.on_click(select(drop))
+            drop.on_change('value', self.on_dropdown(i))
+            self.drops.append(drop)
+
+            group = bokeh.models.CheckboxButtonGroup(
+                    labels=["Show"],
+                    active=[0])
+            group.on_change("active", self.on_radio(i))
+            self.groups.append(group)
+
+        self.render()
+
+    def on_dropdown(self, i):
+        def wrapper(attr, old, new):
+            if old != new:
+                _, flags = self.state[i]
+                self.state[i] = (self.names.index(new), flags)
+                print(self.state)
+                self.render()
+        return wrapper
+
+    def on_radio(self, i):
+        def wrapper(attr, old, new):
+            _, flags = self.state[i]
+            for j in old:
+                if j not in new:
+                    flags[j] = False
+            for j in new:
+                if j not in old:
+                    flags[j] = True
+            print(self.state)
+            self.render()
+        return wrapper
+
+    def render(self):
+        if self.previous_state is not None:
+            # Hide deselected states
+            lost_items = (
+                    set(self.flatten(self.previous_state)) -
+                    set(self.flatten(self.state)))
+            print(lost_items)
+            for i, j, _ in lost_items:
+                self.renderers[i][j].visible = False
+
+        # Sync visible states with menu choices
+        states = set(self.flatten(self.state))
+        hidden = [(i, j) for i, j, v in states if not v]
+        visible = [(i, j) for i, j, v in states if v]
+        for i, j in hidden:
+            self.renderers[i][j].visible = False
+        for i, j in visible:
+            self.renderers[i][j].visible = True
+
+        # Copy old state
+        self.previous_state = list(self.state)
+
+    @staticmethod
+    def flatten(state):
+        items = []
+        for index, flags in state:
+            items += [(index, i, f) for i, f in enumerate(flags)]
+        return items
+
+
+def select(dropdown):
+    def wrapped(new):
+        for label, value in dropdown.menu:
+            if value == new:
+                dropdown.label = label
+    return wrapped
 
 
 def change_label(widget):
