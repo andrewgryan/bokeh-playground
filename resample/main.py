@@ -113,9 +113,9 @@ def main():
         elif "eakm4p4" in os.path.basename(path):
             return "East Africa 4.4km"
 
-    labels = [get_name(path) for path in paths]
+    names = [get_name(path) for path in paths]
     checkboxes = bokeh.models.CheckboxGroup(
-            labels=labels,
+            labels=names,
             active=[0, 1, 2])
 
     def on_change(attr, old, new):
@@ -255,18 +255,26 @@ def main():
     rows = []
     groups = []
     for i in range(3):
+        div = bokeh.models.Div(text="", width=10)
+        drop = bokeh.models.Dropdown(
+                menu=[(n, n) for n in names],
+                label=names[i])
         group = bokeh.models.CheckboxButtonGroup(
-                labels=["L", "C", "R"])
+                labels=["Show"],
+                width=50)
         group.on_change("active", on_change(i))
         groups.append(group)
-        row = bokeh.layouts.row(group)
+        row = bokeh.layouts.row(
+                bokeh.layouts.column(drop),
+                bokeh.layouts.column(div),
+                bokeh.layouts.column(group))
         rows.append(row)
     lcr_column = bokeh.layouts.column(*rows)
 
     def on_click(value):
         if int(value) == 1:
             for g in groups:
-                g.labels = ["Select"]
+                g.labels = ["Show"]
         elif int(value) == 2:
             for g in groups:
                 g.labels = ["L", "R"]
