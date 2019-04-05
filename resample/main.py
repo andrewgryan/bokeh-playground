@@ -175,40 +175,7 @@ def main():
             color_mapper,
             palettes)
 
-    def on_change(attr, old, new):
-        images = []
-        for source in sources:
-            if len(source.data["image"]) == 0:
-                continue
-            images.append(source.data["image"][0])
-        if len(images) > 0:
-            low = np.min([np.min(x) for x in images])
-            high = np.max([np.max(x) for x in images])
-            color_mapper.low = low
-            color_mapper.high = high
-
-    input_width = 65
-    low_input = bokeh.models.TextInput(
-            title="Low:",
-            width=input_width)
-    low_input.on_change(
-            "value",
-            change(color_mapper, "low", float))
-    color_mapper.on_change(
-            "low",
-            change(low_input, "value", str))
-    high_input = bokeh.models.TextInput(
-            title="High:",
-            width=input_width)
-    high_input.on_change(
-            "value",
-            change(color_mapper, "high", float))
-    color_mapper.on_change(
-            "high",
-            change(high_input, "value", str))
-
-    for source in sources:
-        source.on_change("data", on_change)
+    mapper_limits = MapperLimits(sources, color_mapper)
 
     image_controls = ImageControls(names, renderers)
     rows = []
@@ -240,11 +207,6 @@ def main():
         bokeh.layouts.column(div),
         bokeh.layouts.column(dropdown))
 
-    div = bokeh.models.Div(text="", width=10)
-    input_row = bokeh.layouts.row(
-        bokeh.layouts.column(low_input),
-        bokeh.layouts.column(div),
-        bokeh.layouts.column(high_input))
 
     document = bokeh.plotting.curdoc()
     document.add_root(
@@ -256,7 +218,9 @@ def main():
             bokeh.layouts.row(field_controls.drop),
             bokeh.layouts.row(field_controls.radio),
             bokeh.layouts.row(palette_controls.drop),
-            input_row,
+            bokeh.layouts.row(mapper_limits.low_input),
+            bokeh.layouts.row(mapper_limits.high_input),
+            bokeh.layouts.row(mapper_limits.checkbox),
             name="controls"))
     document.add_root(figure_row)
 
@@ -307,6 +271,59 @@ class FieldControls(object):
                 if "pressure" in var.dimensions:
                     variables.add(variable)
         return variables, pressures
+
+
+class MapperLimits(object):
+    def __init__(self, sources, color_mapper, fixed=False):
+        self.fixed = fixed
+        self.sources = sources
+        for source in self.sources:
+            source.on_change("data", self.on_source_change)
+        self.color_mapper = color_mapper
+        self.low_input = bokeh.models.TextInput(title="Low:")
+        self.low_input.on_change("value",
+                self.change(color_mapper, "low", float))
+        self.color_mapper.on_change("low",
+                self.change(self.low_input, "value", str))
+        self.high_input = bokeh.models.TextInput(title="High:")
+        self.high_input.on_change("value",
+                self.change(color_mapper, "high", float))
+        self.color_mapper.on_change("high",
+                self.change(self.high_input, "value", str))
+        self.checkbox = bokeh.models.CheckboxGroup(
+                labels=["Fixed"],
+                active=[])
+        self.checkbox.on_change("active", self.on_checkbox_change)
+
+    def on_checkbox_change(self, attr, old, new):
+        if len(new) == 1:
+            self.fixed = True
+        else:
+            self.fixed = False
+
+    def on_source_change(self, attr, old, new):
+        if self.fixed:
+            return
+        images = []
+        for source in self.sources:
+            if len(source.data["image"]) == 0:
+                continue
+            images.append(source.data["image"][0])
+        if len(images) > 0:
+            low = np.min([np.min(x) for x in images])
+            high = np.max([np.max(x) for x in images])
+            self.color_mapper.low = low
+            self.color_mapper.high = high
+
+    @staticmethod
+    def change(widget, prop, dtype):
+        def wrapper(attr, old, new):
+            if old == new:
+                return
+            if getattr(widget, prop) == dtype(new):
+                return
+            setattr(widget, prop, dtype(new))
+        return wrapper
 
 
 class PaletteControls(object):
