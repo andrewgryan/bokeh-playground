@@ -41,7 +41,7 @@ def main():
         f.toolbar.logo = None
         f.toolbar_location = None
         f.min_border = 0
-        f.add_tile(tile)
+        # f.add_tile(tile)
 
     figure_row = bokeh.layouts.row(*figures,
             sizing_mode="stretch_both")
@@ -68,6 +68,8 @@ def main():
     figure_drop.on_click(on_click)
 
     color_mapper = bokeh.models.LinearColorMapper(
+            low=0,
+            high=1,
             palette=bokeh.palettes.Plasma[256])
     for figure in figures:
         colorbar = bokeh.models.ColorBar(
@@ -103,7 +105,6 @@ def main():
                     color_mapper=color_mapper)
             sub_renderers.append(renderer)
         renderers.append(sub_renderers)
-        source.data = load_image(path, "relative_humidity")
 
     def get_name(path):
         if "ga6" in os.path.basename(path):
@@ -164,19 +165,6 @@ def main():
             """)
     slider.js_on_change("value", custom_js)
 
-    variables = load_variables(paths[0])
-    variables_drop = bokeh.models.Dropdown(
-            label="Variables",
-            menu=[(v, v) for v in variables],
-            width=50)
-    variables_drop.on_click(change_label(variables_drop))
-
-    def on_click(value):
-        for path, source in zip(paths, sources):
-            source.data = load_image(path, value)
-
-    variables_drop.on_click(on_click)
-
     palettes = {
             "Viridis": bokeh.palettes.Viridis[256],
             "Magma": bokeh.palettes.Magma[256],
@@ -188,12 +176,16 @@ def main():
             palettes)
 
     def on_change(attr, old, new):
-        images = [source.data["image"][0]
-            for source in sources]
-        low = np.min([np.min(x) for x in images])
-        high = np.max([np.max(x) for x in images])
-        color_mapper.low = low
-        color_mapper.high = high
+        images = []
+        for source in sources:
+            if len(source.data["image"]) == 0:
+                continue
+            images.append(source.data["image"][0])
+        if len(images) > 0:
+            low = np.min([np.min(x) for x in images])
+            high = np.max([np.max(x) for x in images])
+            color_mapper.low = low
+            color_mapper.high = high
 
     input_width = 65
     low_input = bokeh.models.TextInput(
@@ -240,6 +232,8 @@ def main():
 
     figure_drop.on_click(on_click)
 
+    field_controls = FieldControls(paths, sources)
+
     div = bokeh.models.Div(text="", width=10)
     border_row = bokeh.layouts.row(
         bokeh.layouts.column(toggle),
@@ -259,11 +253,60 @@ def main():
             border_row,
             lcr_column,
             bokeh.layouts.row(slider),
-            bokeh.layouts.row(variables_drop),
+            bokeh.layouts.row(field_controls.drop),
+            bokeh.layouts.row(field_controls.radio),
             bokeh.layouts.row(palette_controls.drop),
             input_row,
             name="controls"))
     document.add_root(figure_row)
+
+
+class FieldControls(object):
+    def __init__(self, paths, sources):
+        self.paths = paths
+        self.sources = sources
+        self.ipressure = 0
+        self.variables = load_variables(self.paths[0])
+        self.pressure_variables, self.pressures = self.load_heights(self.paths[0])
+        self.drop = bokeh.models.Dropdown(
+                label="Variables",
+                menu=[(v, v) for v in self.variables],
+                width=50)
+        self.drop.on_click(change_label(self.drop))
+        self.drop.on_click(self.on_click)
+        self.radio = bokeh.models.RadioGroup(
+                labels=[str(int(p)) for p in self.pressures],
+                active=self.ipressure,
+                inline=True)
+        self.radio.on_change("active", self.on_radio)
+
+    def on_click(self, value):
+        self.variable = value
+        self.render()
+
+    def on_radio(self, attr, old, new):
+        if new is not None:
+            self.ipressure = new
+            self.render()
+
+    def render(self):
+        if self.variable is None:
+            return
+        for path, source in zip(self.paths, self.sources):
+            lons, lats, values = load_image(path, self.variable, self.ipressure)
+            source.data = stretch_image(lons, lats, values)
+
+    @staticmethod
+    def load_heights(path):
+        variables = set()
+        with netCDF4.Dataset(path) as dataset:
+            pressures = dataset.variables["pressure"][:]
+            for variable, var in dataset.variables.items():
+                if variable == "pressure":
+                    continue
+                if "pressure" in var.dimensions:
+                    variables.add(variable)
+        return variables, pressures
 
 
 class PaletteControls(object):
@@ -398,8 +441,8 @@ def load_variables(path):
     return variables
 
 
-def load_image(path, variable):
-    print("loading: {} {}".format(path, variable))
+def load_image(path, variable, ipressure=None):
+    print("loading: {} {} {}".format(path, variable, ipressure))
     with netCDF4.Dataset(path) as dataset:
         var = dataset.variables[variable]
         for d in var.dimensions:
@@ -408,9 +451,13 @@ def load_image(path, variable):
             if "latitude" in d:
                 lats = dataset.variables[d][:]
         if len(var.dimensions) == 4:
-            values = var[0, 0, :]
+            values = var[0, ipressure, :]
         else:
             values = var[0, :]
+    return lons, lats, values
+
+
+def stretch_image(lons, lats, values):
     gx, _ = web_mercator(
         lons,
         np.zeros(len(lons), dtype="d"))
