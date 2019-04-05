@@ -183,16 +183,9 @@ def main():
             "Inferno": bokeh.palettes.Inferno[256],
             "Plasma": bokeh.palettes.Plasma[256]
     }
-    palettes_drop = bokeh.models.Dropdown(
-            label="Palettes",
-            menu=[(k, k) for k in palettes.keys()])
-
-    palettes_drop.on_click(change_label(palettes_drop))
-
-    def on_click(value):
-        color_mapper.palette = palettes[value]
-
-    palettes_drop.on_click(on_click)
+    palette_controls = PaletteControls(
+            color_mapper,
+            palettes)
 
     def on_change(attr, old, new):
         images = [source.data["image"][0]
@@ -267,10 +260,24 @@ def main():
             lcr_column,
             bokeh.layouts.row(slider),
             bokeh.layouts.row(variables_drop),
-            bokeh.layouts.row(palettes_drop),
+            bokeh.layouts.row(palette_controls.drop),
             input_row,
             name="controls"))
     document.add_root(figure_row)
+
+
+class PaletteControls(object):
+    def __init__(self, color_mapper, palettes):
+        self.color_mapper = color_mapper
+        self.palettes = palettes
+        self.drop = bokeh.models.Dropdown(
+                label="Palettes",
+                menu=[(k, k) for k in self.palettes.keys()])
+        self.drop.on_click(change_label(self.drop))
+        self.drop.on_click(self.on_click)
+
+    def on_click(self, value):
+        self.color_mapper.palette = self.palettes[value]
 
 
 class ImageControls(object):
