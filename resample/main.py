@@ -6,6 +6,9 @@ import scipy.interpolate
 import scipy.ndimage
 import glob
 import os
+import json
+from collections import OrderedDict
+import pandas as pd
 
 
 def main():
@@ -41,7 +44,7 @@ def main():
         f.toolbar.logo = None
         f.toolbar_location = None
         f.min_border = 0
-        # f.add_tile(tile)
+        f.add_tile(tile)
 
     figure_row = bokeh.layouts.row(*figures,
             sizing_mode="stretch_both")
@@ -81,46 +84,64 @@ def main():
             bar_line_color="black")
         figure.add_layout(colorbar, 'center')
 
-    pattern = "/Users/andrewryan/cache/highway_*.nc"
+    patterns = OrderedDict({
+        "GA6": "/Users/andrewryan/cache/highway_ga6*.nc",
+        "Tropical Africa 4.4km": "/Users/andrewryan/cache/highway_takm4p4*.nc",
+        "East Africa 4.4km": "/Users/andrewryan/cache/highway_eakm4p4*.nc",
+        "RDT": "/Users/andrewryan/cache/*.json",
+        "EarthNetworks": "/Users/andrewryan/buckets/highway-external-collab/2019/20190407/englnrt_20190407*",
+        "GPM IMERG early": "/Users/andrewryan/buckets/stephen-sea-public-london/gpm_imerg/gpm_imerg_NRTearly_V05B_20190406_highway_only.nc",
+        "GPM IMERG late": "/Users/andrewryan/buckets/stephen-sea-public-london/gpm_imerg/gpm_imerg_NRTlate_V05B_20190406_highway_only.nc",
+    })
+    paths = {k: glob.glob(p) for k, p in patterns.items()}
+    print(paths)
+    image_paths = [p[0] for k, p in paths.items() if k not in ["RDT", "EarthNetworks"]]
+    names = list(patterns.keys())
+
     renderers = []
     sources = []
-    paths = glob.glob(pattern)
-    for path in paths:
-        source = bokeh.models.ColumnDataSource({
-            "x": [],
-            "y": [],
-            "dw": [],
-            "dh": [],
-            "image": []})
+    image_sources = []
+    for name in names:
+        if name == "RDT":
+            viewer = RDT(paths["RDT"])
+            source = viewer.source
+        elif name == "EarthNetworks":
+            viewer = EarthNetworks(paths["EarthNetworks"])
+            source = viewer.source
+        else:
+            source = bokeh.models.ColumnDataSource({
+                "x": [],
+                "y": [],
+                "dw": [],
+                "dh": [],
+                "image": []})
+            image_sources.append(source)
         sources.append(source)
         sub_renderers = []
         for figure in figures:
-            renderer = figure.image(
-                    x="x",
-                    y="y",
-                    dw="dw",
-                    dh="dh",
-                    image="image",
-                    source=source,
-                    color_mapper=color_mapper)
+            if name == "RDT":
+                renderer = viewer.add_figure(figure)
+            elif name == "EarthNetworks":
+                renderer = viewer.add_figure(figure)
+            else:
+                renderer = figure.image(
+                        x="x",
+                        y="y",
+                        dw="dw",
+                        dh="dh",
+                        image="image",
+                        source=source,
+                        color_mapper=color_mapper)
             sub_renderers.append(renderer)
         renderers.append(sub_renderers)
 
-    def get_name(path):
-        if "ga6" in os.path.basename(path):
-            return "GA6"
-        elif "takm4p4" in os.path.basename(path):
-            return "Tropical Africa 4.4km"
-        elif "eakm4p4" in os.path.basename(path):
-            return "East Africa 4.4km"
-
-    names = [get_name(path) for path in paths]
-
     features = []
     for figure in figures:
+        coastline = cartopy.feature.COASTLINE
+        coastline.scale = "50m"
         features += [
             add_feature(figure, cartopy.feature.BORDERS),
-            add_feature(figure, cartopy.feature.COASTLINE)]
+            add_feature(figure, coastline)]
     toggle = bokeh.models.CheckboxButtonGroup(
             labels=["Coastlines"],
             active=[0],
@@ -175,7 +196,7 @@ def main():
             color_mapper,
             palettes)
 
-    mapper_limits = MapperLimits(sources, color_mapper)
+    mapper_limits = MapperLimits(image_sources, color_mapper)
 
     image_controls = ImageControls(names, renderers)
     rows = []
@@ -199,7 +220,7 @@ def main():
 
     figure_drop.on_click(on_click)
 
-    field_controls = FieldControls(paths, sources)
+    field_controls = FieldControls(image_paths, image_sources)
 
     div = bokeh.models.Div(text="", width=10)
     border_row = bokeh.layouts.row(
@@ -223,6 +244,159 @@ def main():
             bokeh.layouts.row(mapper_limits.checkbox),
             name="controls"))
     document.add_root(figure_row)
+
+
+class GPM(object):
+    def __init__(self, paths):
+        pass
+
+    def add_figure(self, figure):
+        pass
+
+
+class UM(object):
+    def __init__(self, paths):
+        pass
+
+    def add_figure(self, figure):
+        pass
+
+
+class EarthNetworks(object):
+    def __init__(self, paths):
+        self.paths = paths
+        frame = self.read(paths)
+        print(frame)
+        x, y = web_mercator(
+                frame.longitude,
+                frame.latitude)
+        self.source = bokeh.models.ColumnDataSource({
+            "x": x,
+            "y": y,
+            "date": frame.date,
+            "longitude": frame.longitude,
+            "latitude": frame.latitude,
+            "flash_type": frame.flash_type,
+        })
+
+    def add_figure(self, figure):
+        renderer = figure.circle(
+                x="x",
+                y="y",
+                size=10,
+                source=self.source)
+        tool = bokeh.models.HoverTool(
+                tooltips=[
+                    ('Time', '@date{%F}'),
+                    ('Lon', '@longitude'),
+                    ('Lat', '@latitude'),
+                    ('Flash type', '@flash_type')],
+                formatters={
+                    'date': 'datetime'
+                },
+                renderers=[renderer])
+        figure.add_tools(tool)
+        return renderer
+
+    @staticmethod
+    def read(csv_files):
+        if isinstance(csv_files, str):
+            csv_files = [csv_files]
+        frames = []
+        for csv_file in csv_files:
+            frame = pd.read_csv(
+                csv_file,
+                parse_dates=[1],
+                converters={0: EarthNetworks.flash_type},
+                usecols=[0, 1, 2, 3],
+                names=["flash_type", "date", "longitude", "latitude"],
+                header=None)
+            frames.append(frame)
+        return pd.concat(frames, ignore_index=True)
+
+
+    @staticmethod
+    def flash_type(value):
+        return {
+            "0": "CG",
+            "1": "IC",
+            "9": "Keep alive"
+        }.get(value, value)
+
+
+class RDT(object):
+    def __init__(self, paths):
+        self.paths = paths
+        geojson = self.load(self.paths[0])
+        self.color_mapper = bokeh.models.CategoricalColorMapper(
+                palette=bokeh.palettes.Spectral6,
+                factors=["0", "1", "2", "3", "4"])
+        # self.color_mapper = bokeh.models.LinearColorMapper(
+        #         palette=bokeh.palettes.Viridis6)
+        self.source = bokeh.models.GeoJSONDataSource(
+                geojson=geojson)
+
+    def add_figure(self, figure):
+        renderer = figure.patches(
+            xs="xs",
+            ys="ys",
+            fill_alpha=0,
+            line_width=2,
+            line_color={
+                'field': 'PhaseLife',
+                'transform': self.color_mapper},
+            source=self.source)
+        tool = bokeh.models.HoverTool(
+                tooltips=[
+                    ('CType', '@CType'),
+                    ('CRainRate', '@CRainRate'),
+                    ('ConvTypeMethod', '@ConvTypeMethod'),
+                    ('ConvType', '@ConvType'),
+                    ('ConvTypeQuality', '@ConvTypeQuality'),
+                    ('SeverityIntensity', '@SeverityIntensity'),
+                    ('MvtSpeed', '@MvtSpeed'),
+                    ('MvtDirection', '@MvtDirection'),
+                    ('NumIdCell', '@NumIdCell'),
+                    ('CTPressure', '@CTPressure'),
+                    ('CTPhase', '@CTPhase'),
+                    ('CTReff', '@CTReff'),
+                    ('LonG', '@LonG'),
+                    ('LatG', '@LatG'),
+                    ('ExpansionRate', '@ExpansionRate'),
+                    ('BTmin', '@BTmin'),
+                    ('BTmoy', '@BTmoy'),
+                    ('CTCot', '@CTCot'),
+                    ('CTCwp', '@CTCwp'),
+                    ('NbPosLightning', '@NbPosLightning'),
+                    ('SeverityType', '@SeverityType'),
+                    ('Surface', '@Surface'),
+                    ('Duration', '@Duration'),
+                    ('CoolingRate', '@CoolingRate'),
+                    ('Phase life', '@PhaseLife')],
+                renderers=[renderer])
+        figure.add_tools(tool)
+        return renderer
+
+    @staticmethod
+    def load(path):
+        print("loading: {}".format(path))
+        with open(path) as stream:
+            rdt = json.load(stream)
+
+        copy = dict(rdt)
+        for i, feature in enumerate(rdt["features"]):
+            coordinates = feature['geometry']['coordinates'][0]
+            lons, lats = np.asarray(coordinates).T
+            x, y = web_mercator(lons, lats)
+            c = np.array([x, y]).T.tolist()
+            copy["features"][i]['geometry']['coordinates'][0] = c
+
+        # Hack to use Categorical mapper
+        for i, feature in enumerate(rdt["features"]):
+            p = feature['properties']['PhaseLife']
+            copy["features"][i]['properties']['PhaseLife'] = str(p)
+
+        return json.dumps(copy)
 
 
 class FieldControls(object):
@@ -347,7 +521,8 @@ class ImageControls(object):
         self.state = [
                 (0, [True, False, False]),
                 (1, [True, False, False]),
-                (2, [True, False, False])]
+                (2, [True, False, False]),
+                (3, [False, False, False])]
         self.previous_state = None
         self.drops = []
         self.groups = []
