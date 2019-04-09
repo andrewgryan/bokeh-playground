@@ -1,24 +1,17 @@
 import bokeh.plotting
 import cartopy
 import numpy as np
-import netCDF4
-import scipy.interpolate
-import scipy.ndimage
-import glob
 import os
-import json
-from collections import OrderedDict
-import pandas as pd
+import data
+import geo
 
 
 def main():
     lon_range = (0, 30)
     lat_range = (0, 30)
-    x_range, y_range = transform(
+    x_range, y_range = geo.web_mercator(
         lon_range,
-        lat_range,
-        cartopy.crs.PlateCarree(),
-        cartopy.crs.Mercator.GOOGLE)
+        lat_range)
     figure = bokeh.plotting.figure(
         x_range=x_range,
         y_range=y_range,
@@ -84,37 +77,30 @@ def main():
             bar_line_color="black")
         figure.add_layout(colorbar, 'center')
 
-    patterns = OrderedDict({
-        "GA6": "/Users/andrewryan/cache/highway_ga6*.nc",
-        "Tropical Africa 4.4km": "/Users/andrewryan/cache/highway_takm4p4*.nc",
-        "East Africa 4.4km": "/Users/andrewryan/cache/highway_eakm4p4*.nc",
-        "RDT": "/Users/andrewryan/cache/*.json",
-        "EarthNetworks": "/Users/andrewryan/buckets/highway-external-collab/2019/20190407/englnrt_20190407*",
-        "GPM IMERG early": "/Users/andrewryan/buckets/stephen-sea-public-london/gpm_imerg/gpm_imerg_NRTearly_V05B_20190406_highway_only.nc",
-        "GPM IMERG late": "/Users/andrewryan/buckets/stephen-sea-public-london/gpm_imerg/gpm_imerg_NRTlate_V05B_20190406_highway_only.nc",
-    })
-    paths = {k: glob.glob(p) for k, p in patterns.items()}
-    print(paths)
-    image_paths = [p[0] for k, p in paths.items() if k not in ["RDT", "EarthNetworks"]]
-    names = list(patterns.keys())
+    paths = data.FILE_DB.files
+    image_paths = [
+            p[0] for k, p in paths.items() if k not in [
+        "RDT",
+        "EarthNetworks",
+        "GPM IMERG early",
+        "GPM IMERG late"]]
 
     renderers = []
     sources = []
     image_sources = []
-    for name in names:
+    image_loaders = []
+    for name in data.FILE_DB.names:
+        loader = data.LOADERS[name]
         if name == "RDT":
-            viewer = RDT(paths["RDT"])
+            viewer = RDT(loader)
             source = viewer.source
         elif name == "EarthNetworks":
-            viewer = EarthNetworks(paths["EarthNetworks"])
+            viewer = EarthNetworks(loader)
             source = viewer.source
         else:
-            source = bokeh.models.ColumnDataSource({
-                "x": [],
-                "y": [],
-                "dw": [],
-                "dh": [],
-                "image": []})
+            viewer = UMViewer()
+            source = viewer.source
+            image_loaders.append(loader)
             image_sources.append(source)
         sources.append(source)
         sub_renderers = []
@@ -124,14 +110,9 @@ def main():
             elif name == "EarthNetworks":
                 renderer = viewer.add_figure(figure)
             else:
-                renderer = figure.image(
-                        x="x",
-                        y="y",
-                        dw="dw",
-                        dh="dh",
-                        image="image",
-                        source=source,
-                        color_mapper=color_mapper)
+                renderer = viewer.add_figure(
+                        figure,
+                        color_mapper)
             sub_renderers.append(renderer)
         renderers.append(sub_renderers)
 
@@ -198,7 +179,7 @@ def main():
 
     mapper_limits = MapperLimits(image_sources, color_mapper)
 
-    image_controls = ImageControls(names, renderers)
+    image_controls = ImageControls(data.FILE_DB.names, renderers)
     rows = []
     for drop, group in zip(
             image_controls.drops,
@@ -220,7 +201,10 @@ def main():
 
     figure_drop.on_click(on_click)
 
-    field_controls = FieldControls(image_paths, image_sources)
+    field_controls = FieldControls(
+            image_paths,
+            image_sources,
+            image_loaders)
 
     div = bokeh.models.Div(text="", width=10)
     border_row = bokeh.layouts.row(
@@ -254,29 +238,50 @@ class GPM(object):
         pass
 
 
-class UM(object):
-    def __init__(self, paths):
-        pass
+class UMViewer(object):
+    def __init__(self):
+        self.source = bokeh.models.ColumnDataSource({
+                "x": [],
+                "y": [],
+                "dw": [],
+                "dh": [],
+                "image": []})
 
-    def add_figure(self, figure):
-        pass
+    def add_figure(self, figure, color_mapper):
+        return figure.image(
+                x="x",
+                y="y",
+                dw="dw",
+                dh="dh",
+                image="image",
+                source=self.source,
+                color_mapper=color_mapper)
 
 
 class EarthNetworks(object):
-    def __init__(self, paths):
-        self.paths = paths
-        frame = self.read(paths)
-        print(frame)
-        x, y = web_mercator(
-                frame.longitude,
-                frame.latitude)
+    def __init__(self, loader):
+        frame = loader.frame
+        if frame is not None:
+            x, y = geo.web_mercator(
+                    frame.longitude,
+                    frame.latitude)
+            date = frame.date
+            longitude = frame.longitude
+            latitude = frame.latitude
+            flash_type = frame.flash_type
+        else:
+            x, y = [], []
+            date = []
+            longitude = []
+            latitude = []
+            flash_type = []
         self.source = bokeh.models.ColumnDataSource({
             "x": x,
             "y": y,
-            "date": frame.date,
-            "longitude": frame.longitude,
-            "latitude": frame.latitude,
-            "flash_type": frame.flash_type,
+            "date": date,
+            "longitude": longitude,
+            "latitude": latitude,
+            "flash_type": flash_type,
         })
 
     def add_figure(self, figure):
@@ -298,43 +303,16 @@ class EarthNetworks(object):
         figure.add_tools(tool)
         return renderer
 
-    @staticmethod
-    def read(csv_files):
-        if isinstance(csv_files, str):
-            csv_files = [csv_files]
-        frames = []
-        for csv_file in csv_files:
-            frame = pd.read_csv(
-                csv_file,
-                parse_dates=[1],
-                converters={0: EarthNetworks.flash_type},
-                usecols=[0, 1, 2, 3],
-                names=["flash_type", "date", "longitude", "latitude"],
-                header=None)
-            frames.append(frame)
-        return pd.concat(frames, ignore_index=True)
-
-
-    @staticmethod
-    def flash_type(value):
-        return {
-            "0": "CG",
-            "1": "IC",
-            "9": "Keep alive"
-        }.get(value, value)
-
 
 class RDT(object):
-    def __init__(self, paths):
-        self.paths = paths
-        geojson = self.load(self.paths[0])
+    def __init__(self, loader):
         self.color_mapper = bokeh.models.CategoricalColorMapper(
                 palette=bokeh.palettes.Spectral6,
                 factors=["0", "1", "2", "3", "4"])
         # self.color_mapper = bokeh.models.LinearColorMapper(
         #         palette=bokeh.palettes.Viridis6)
         self.source = bokeh.models.GeoJSONDataSource(
-                geojson=geojson)
+                geojson=loader.geojson)
 
     def add_figure(self, figure):
         renderer = figure.patches(
@@ -377,35 +355,15 @@ class RDT(object):
         figure.add_tools(tool)
         return renderer
 
-    @staticmethod
-    def load(path):
-        print("loading: {}".format(path))
-        with open(path) as stream:
-            rdt = json.load(stream)
-
-        copy = dict(rdt)
-        for i, feature in enumerate(rdt["features"]):
-            coordinates = feature['geometry']['coordinates'][0]
-            lons, lats = np.asarray(coordinates).T
-            x, y = web_mercator(lons, lats)
-            c = np.array([x, y]).T.tolist()
-            copy["features"][i]['geometry']['coordinates'][0] = c
-
-        # Hack to use Categorical mapper
-        for i, feature in enumerate(rdt["features"]):
-            p = feature['properties']['PhaseLife']
-            copy["features"][i]['properties']['PhaseLife'] = str(p)
-
-        return json.dumps(copy)
-
 
 class FieldControls(object):
-    def __init__(self, paths, sources):
+    def __init__(self, paths, sources, loaders):
         self.paths = paths
         self.sources = sources
         self.ipressure = 0
-        self.variables = load_variables(self.paths[0])
-        self.pressure_variables, self.pressures = self.load_heights(self.paths[0])
+        self.variables = loaders[0].variables
+        self.pressures = loaders[0].pressures
+        self.pressure_variables = loaders[0].pressure_variables
         self.drop = bokeh.models.Dropdown(
                 label="Variables",
                 menu=[(v, v) for v in self.variables],
@@ -431,20 +389,10 @@ class FieldControls(object):
         if self.variable is None:
             return
         for path, source in zip(self.paths, self.sources):
-            lons, lats, values = load_image(path, self.variable, self.ipressure)
-            source.data = stretch_image(lons, lats, values)
-
-    @staticmethod
-    def load_heights(path):
-        variables = set()
-        with netCDF4.Dataset(path) as dataset:
-            pressures = dataset.variables["pressure"][:]
-            for variable, var in dataset.variables.items():
-                if variable == "pressure":
-                    continue
-                if "pressure" in var.dimensions:
-                    variables.add(variable)
-        return variables, pressures
+            source.data = data.load_image(
+                    path,
+                    self.variable,
+                    self.ipressure)
 
 
 class MapperLimits(object):
@@ -548,7 +496,6 @@ class ImageControls(object):
             if old != new:
                 _, flags = self.state[i]
                 self.state[i] = (self.names.index(new), flags)
-                print(self.state)
                 self.render()
         return wrapper
 
@@ -561,7 +508,6 @@ class ImageControls(object):
             for j in new:
                 if j not in old:
                     flags[j] = True
-            print(self.state)
             self.render()
         return wrapper
 
@@ -571,7 +517,6 @@ class ImageControls(object):
             lost_items = (
                     set(self.flatten(self.previous_state)) -
                     set(self.flatten(self.state)))
-            print(lost_items)
             for i, j, _ in lost_items:
                 self.renderers[i][j].visible = False
 
@@ -619,57 +564,6 @@ def change(widget, prop, dtype):
     return wrapper
 
 
-def load_variables(path):
-    variables = []
-    with netCDF4.Dataset(path) as dataset:
-        for v in dataset.variables:
-            if "bnds" in v:
-                continue
-            if v in dataset.dimensions:
-                continue
-            if len(dataset.variables[v].dimensions) < 2:
-                continue
-            variables.append(v)
-    return variables
-
-
-def load_image(path, variable, ipressure=None):
-    print("loading: {} {} {}".format(path, variable, ipressure))
-    with netCDF4.Dataset(path) as dataset:
-        var = dataset.variables[variable]
-        for d in var.dimensions:
-            if "longitude" in d:
-                lons = dataset.variables[d][:]
-            if "latitude" in d:
-                lats = dataset.variables[d][:]
-        if len(var.dimensions) == 4:
-            values = var[0, ipressure, :]
-        else:
-            values = var[0, :]
-    return lons, lats, values
-
-
-def stretch_image(lons, lats, values):
-    gx, _ = web_mercator(
-        lons,
-        np.zeros(len(lons), dtype="d"))
-    _, gy = web_mercator(
-        np.zeros(len(lats), dtype="d"),
-        lats)
-    image = stretch_y(gy)(values)
-    x = gx.min()
-    y = gy.min()
-    dw = gx[-1] - gx[0]
-    dh = gy[-1] - gy[0]
-    return {
-        "x": [x],
-        "y": [y],
-        "dw": [dw],
-        "dh": [dh],
-        "image": [image]
-    }
-
-
 def add_feature(figure, feature):
     source = bokeh.models.ColumnDataSource({
         "xs": [],
@@ -684,7 +578,7 @@ def add_feature(figure, feature):
     for geometry in feature.geometries():
         for g in geometry:
             lons, lats = g.xy
-            x, y = web_mercator(lons, lats)
+            x, y = geo.web_mercator(lons, lats)
             xs.append(x)
             ys.append(y)
     source.data = {
@@ -692,58 +586,6 @@ def add_feature(figure, feature):
         "ys": ys
     }
     return renderer
-
-def web_mercator(lons, lats):
-    return transform(
-            lons,
-            lats,
-            cartopy.crs.PlateCarree(),
-            cartopy.crs.Mercator.GOOGLE)
-
-
-def transform(x, y, src_crs, dst_crs):
-    x, y = np.asarray(x), np.asarray(y)
-    xt, yt, _ = dst_crs.transform_points(src_crs, x.flatten(), y.flatten()).T
-    return xt, yt
-
-
-def stretch_y(uneven_y):
-    """Mercator projection stretches longitude spacing
-
-    To remedy this effect an even-spaced resampling is performed
-    in the projected space to make the pixels and grid line up
-
-    .. note:: This approach assumes the grid is evenly spaced
-              in longitude/latitude space prior to projection
-    """
-    if isinstance(uneven_y, list):
-        uneven_y = np.asarray(uneven_y, dtype=np.float)
-    even_y = np.linspace(
-        uneven_y.min(), uneven_y.max(), len(uneven_y),
-        dtype=np.float)
-    index = np.arange(len(uneven_y), dtype=np.float)
-    index_function = scipy.interpolate.interp1d(uneven_y, index)
-    index_fractions = index_function(even_y)
-
-    def wrapped(values, axis=0):
-        if isinstance(values, list):
-            values = np.asarray(values, dtype=np.float)
-        assert values.ndim == 2, "Can only stretch 2D arrays"
-        msg = "{} != {} do not match".format(values.shape[axis], len(uneven_y))
-        assert values.shape[axis] == len(uneven_y), msg
-        if axis == 0:
-            i = index_fractions
-            j = np.arange(values.shape[1], dtype=np.float)
-        elif axis == 1:
-            i = np.arange(values.shape[0], dtype=np.float)
-            j = index_fractions
-        else:
-            raise Exception("Can only handle axis 0 or 1")
-        return scipy.ndimage.map_coordinates(
-            values,
-            np.meshgrid(i, j, indexing="ij"),
-            order=1)
-    return wrapped
 
 
 if __name__.startswith("bk"):
