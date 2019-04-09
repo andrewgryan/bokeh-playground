@@ -111,6 +111,12 @@ class GPM(object):
     def __init__(self, paths):
         self.paths = paths
 
+    def image(self):
+        return load_image(
+                self.paths[0],
+                "precipitation_flux",
+                0)
+
 
 class UMLoader(object):
     def __init__(self, paths):
@@ -129,6 +135,12 @@ class UMLoader(object):
                 if "pressure" in var.dimensions:
                     variables.add(variable)
         return variables, pressures
+
+    def image(self, variable, ipressure):
+        return load_image(
+                self.paths[0],
+                variable,
+                ipressure)
 
 
 def load_variables(path):
@@ -153,7 +165,13 @@ def load_image(path, variable, ipressure=None):
     else:
         print("loading: {}".format(key))
         with netCDF4.Dataset(path) as dataset:
-            var = dataset.variables[variable]
+            try:
+                var = dataset.variables[variable]
+            except KeyError as e:
+                if variable == "precipitation_flux":
+                    var = dataset.variables["stratiform_rainfall_rate"]
+                else:
+                    raise e
             for d in var.dimensions:
                 if "longitude" in d:
                     lons = dataset.variables[d][:]

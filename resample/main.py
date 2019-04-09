@@ -78,41 +78,34 @@ def main():
         figure.add_layout(colorbar, 'center')
 
     paths = data.FILE_DB.files
-    image_paths = [
-            p[0] for k, p in paths.items() if k not in [
-        "RDT",
-        "EarthNetworks",
-        "GPM IMERG early",
-        "GPM IMERG late"]]
-
     renderers = []
-    sources = []
     image_sources = []
+    image_viewers = []
     image_loaders = []
     for name in data.FILE_DB.names:
         loader = data.LOADERS[name]
-        if name == "RDT":
+        if isinstance(loader, data.RDT):
             viewer = RDT(loader)
-            source = viewer.source
-        elif name == "EarthNetworks":
+        elif isinstance(loader, data.EarthNetworks):
             viewer = EarthNetworks(loader)
-            source = viewer.source
-        else:
-            viewer = UMViewer()
-            source = viewer.source
+        elif isinstance(loader, data.GPM):
+            viewer = GPMViewer(loader)
             image_loaders.append(loader)
-            image_sources.append(source)
-        sources.append(source)
+            image_viewers.append(viewer)
+            image_sources.append(viewer.source)
+        else:
+            viewer = UMViewer(loader)
+            image_loaders.append(loader)
+            image_viewers.append(viewer)
+            image_sources.append(viewer.source)
         sub_renderers = []
         for figure in figures:
-            if name == "RDT":
-                renderer = viewer.add_figure(figure)
-            elif name == "EarthNetworks":
-                renderer = viewer.add_figure(figure)
-            else:
+            if isinstance(viewer, (GPMViewer, UMViewer)):
                 renderer = viewer.add_figure(
                         figure,
                         color_mapper)
+            else:
+                renderer = viewer.add_figure(figure)
             sub_renderers.append(renderer)
         renderers.append(sub_renderers)
 
@@ -202,8 +195,7 @@ def main():
     figure_drop.on_click(on_click)
 
     field_controls = FieldControls(
-            image_paths,
-            image_sources,
+            image_viewers,
             image_loaders)
 
     div = bokeh.models.Div(text="", width=10)
@@ -230,22 +222,50 @@ def main():
     document.add_root(figure_row)
 
 
-class GPM(object):
-    def __init__(self, paths):
-        pass
+class GPMViewer(object):
+    def __init__(self, loader):
+        self.loader = loader
+        self.empty = {
+                "x": [],
+                "y": [],
+                "dw": [],
+                "dh": [],
+                "image": []}
+        self.source = bokeh.models.ColumnDataSource(self.empty)
 
-    def add_figure(self, figure):
-        pass
+    def render(self, variable, ipressure):
+        if variable != "precipitation_flux":
+            self.source.data = self.empty
+        else:
+            self.source.data = self.loader.image()
+
+    def add_figure(self, figure, color_mapper):
+        return figure.image(
+                x="x",
+                y="y",
+                dw="dw",
+                dh="dh",
+                image="image",
+                source=self.source,
+                color_mapper=color_mapper)
 
 
 class UMViewer(object):
-    def __init__(self):
+    def __init__(self, loader):
+        self.loader = loader
         self.source = bokeh.models.ColumnDataSource({
                 "x": [],
                 "y": [],
                 "dw": [],
                 "dh": [],
                 "image": []})
+
+    def render(self, variable, ipressure):
+        if variable is None:
+            return
+        self.source.data = self.loader.image(
+                variable,
+                ipressure)
 
     def add_figure(self, figure, color_mapper):
         return figure.image(
@@ -309,8 +329,6 @@ class RDT(object):
         self.color_mapper = bokeh.models.CategoricalColorMapper(
                 palette=bokeh.palettes.Spectral6,
                 factors=["0", "1", "2", "3", "4"])
-        # self.color_mapper = bokeh.models.LinearColorMapper(
-        #         palette=bokeh.palettes.Viridis6)
         self.source = bokeh.models.GeoJSONDataSource(
                 geojson=loader.geojson)
 
@@ -357,9 +375,8 @@ class RDT(object):
 
 
 class FieldControls(object):
-    def __init__(self, paths, sources, loaders):
-        self.paths = paths
-        self.sources = sources
+    def __init__(self, viewers, loaders):
+        self.viewers = viewers
         self.ipressure = 0
         self.variables = loaders[0].variables
         self.pressures = loaders[0].pressures
@@ -388,11 +405,8 @@ class FieldControls(object):
     def render(self):
         if self.variable is None:
             return
-        for path, source in zip(self.paths, self.sources):
-            source.data = data.load_image(
-                    path,
-                    self.variable,
-                    self.ipressure)
+        for viewer in self.viewers:
+            viewer.render(self.variable, self.ipressure)
 
 
 class MapperLimits(object):
