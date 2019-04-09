@@ -2,8 +2,11 @@ import bokeh.plotting
 import bokeh.models
 import bokeh.layouts
 import os
+import jinja2
 from tinydb import TinyDB, Query
 from passlib.hash import sha256_crypt
+
+import data
 
 
 USER_DB = os.path.join(os.path.dirname(__file__), "user.db")
@@ -16,6 +19,8 @@ class Survey(object):
         self.login_page()
         self.exit = bokeh.models.Button(label="Exit survey")
         self.exit.on_click(self.on_exit)
+        self.show = bokeh.models.Button(label="Show answers")
+        self.show.on_click(self.on_show)
 
     def login_page(self):
         self.user_name = bokeh.models.TextInput(
@@ -28,12 +33,13 @@ class Survey(object):
         self.login = bokeh.models.Button(
                 label="Login")
         self.login.on_click(self.on_login)
-        self.message = bokeh.models.Div()
+        self.message = bokeh.models.Div(
+                style={'color': 'red'})
         self.column.children = [
+                self.message,
                 self.user_name,
                 self.password,
-                bokeh.layouts.row(self.register, self.login),
-                self.message
+                bokeh.layouts.row(self.register, self.login)
         ]
 
     def on_register(self):
@@ -79,13 +85,39 @@ class Survey(object):
 
     def on_submit(self):
         self.column.children = [bokeh.models.Div(text="Saving...")]
+        with TinyDB(USER_DB) as db:
+            table = db.table('answers')
+            answers = []
+            for question in self.questions:
+                answer = {
+                    'user': self.user_name.value,
+                    'question': question.title,
+                    'answer': question.value
+                }
+                answers.append(answer)
+            table.insert_multiple(answers)
         document = bokeh.plotting.curdoc()
         document.add_timeout_callback(self.on_complete, 1000)
+
+    def on_show(self):
+        with TinyDB(USER_DB) as db:
+            table = db.table('answers')
+            entries = table.search(Query().user == self.user_name.value)
+
+        text = jinja2.Template("""
+            {% for entry in entries %}
+            <p><b>{{ entry.question }}</b> {{ entry.answer }}</p>
+            {% endfor %}
+        """).render(entries=entries)
+        print(text)
+
+        self.column.children.append(
+                bokeh.models.Div(text=text))
 
     def on_complete(self):
         self.column.children = [
                 bokeh.models.Div(text="Thank you"),
-                self.exit
+                bokeh.layouts.row(self.exit, self.show)
         ]
 
     def validate(self, attr, old, new):
@@ -93,6 +125,9 @@ class Survey(object):
 
 
 def main():
+    data.sessions.append(__name__)
+    print(data.dimensions)
+
     survey = Survey()
     document = bokeh.plotting.curdoc()
     document.add_root(survey.column)
