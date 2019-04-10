@@ -2,8 +2,9 @@ import bokeh.models
 
 
 class UMView(object):
-    def __init__(self, loader):
+    def __init__(self, loader, color_mapper):
         self.loader = loader
+        self.color_mapper = color_mapper
         self.source = bokeh.models.ColumnDataSource({
                 "x": [],
                 "y": [],
@@ -19,7 +20,7 @@ class UMView(object):
                 ipressure,
                 itime)
 
-    def add_figure(self, figure, color_mapper):
+    def add_figure(self, figure):
         return figure.image(
                 x="x",
                 y="y",
@@ -27,12 +28,13 @@ class UMView(object):
                 dh="dh",
                 image="image",
                 source=self.source,
-                color_mapper=color_mapper)
+                color_mapper=self.color_mapper)
 
 
 class GPMView(object):
-    def __init__(self, loader):
+    def __init__(self, loader, color_mapper):
         self.loader = loader
+        self.color_mapper = color_mapper
         self.empty = {
                 "x": [],
                 "y": [],
@@ -47,7 +49,7 @@ class GPMView(object):
         else:
             self.source.data = self.loader.image(itime)
 
-    def add_figure(self, figure, color_mapper):
+    def add_figure(self, figure):
         return figure.image(
                 x="x",
                 y="y",
@@ -55,4 +57,4 @@ class GPMView(object):
                 dh="dh",
                 image="image",
                 source=self.source,
-                color_mapper=color_mapper)
+                color_mapper=self.color_mapper)

@@ -1,10 +1,11 @@
 import bokeh.plotting
 import numpy as np
 import os
-from functools import partial
 import data
 import view
+import images
 import geo
+from util import Observable, select
 
 
 NEXT = "NEXT"
@@ -94,23 +95,18 @@ def main():
         elif isinstance(loader, data.EarthNetworks):
             viewer = EarthNetworks(loader)
         elif isinstance(loader, data.GPM):
-            viewer = view.GPMView(loader)
+            viewer = view.GPMView(loader, color_mapper)
             image_loaders.append(loader)
             image_viewers.append(viewer)
             image_sources.append(viewer.source)
         else:
-            viewer = view.UMView(loader)
+            viewer = view.UMView(loader, color_mapper)
             image_loaders.append(loader)
             image_viewers.append(viewer)
             image_sources.append(viewer.source)
         sub_renderers = []
         for figure in figures:
-            if isinstance(viewer, (view.GPMView, view.UMView)):
-                renderer = viewer.add_figure(
-                        figure,
-                        color_mapper)
-            else:
-                renderer = viewer.add_figure(figure)
+            renderer = viewer.add_figure(figure)
             sub_renderers.append(renderer)
         renderers.append(sub_renderers)
 
@@ -175,35 +171,32 @@ def main():
 
     mapper_limits = MapperLimits(image_sources, color_mapper)
 
-    image_controls = ImageControls(data.FILE_DB.names, renderers)
-    rows = []
-    for drop, group in zip(
-            image_controls.drops,
-            image_controls.groups):
-        row = bokeh.layouts.row(drop, group)
-        rows.append(row)
-    lcr_column = bokeh.layouts.column(*rows)
+    menu = [(n, n) for n in data.FILE_DB.names]
+    image_controls = images.Controls(menu)
 
     def on_click(value):
         if int(value) == 1:
-            for g in image_controls.groups:
-                g.labels = ["Show"]
+            image_controls.labels = ["Show"]
         elif int(value) == 2:
-            for g in image_controls.groups:
-                g.labels = ["L", "R"]
+            image_controls.labels = ["L", "R"]
         elif int(value) == 3:
-            for g in image_controls.groups:
-                g.labels = ["L", "C", "R"]
+            image_controls.labels = ["L", "C", "R"]
 
     figure_drop.on_click(on_click)
 
     variables = image_loaders[0].variables
     pressures = image_loaders[0].pressures
+    pressure_variables = image_loaders[0].pressure_variables
     field_controls = FieldControls(
             variables,
-            pressures)
-    for viewer in image_viewers:
-        field_controls.subscribe(viewer.render)
+            pressures,
+            pressure_variables)
+    # for viewer in image_viewers:
+    #     field_controls.subscribe(viewer.render)
+
+    artist = Artist(figures, color_mapper)
+    image_controls.subscribe(artist.on_visible)
+    field_controls.subscribe(artist.on_field)
 
     div = bokeh.models.Div(text="", width=10)
     border_row = bokeh.layouts.row(
@@ -214,22 +207,96 @@ def main():
     time_controls = TimeControls()
     time_controls.subscribe(field_controls.on_time_control)
 
+    tabs = bokeh.models.Tabs(tabs=[
+        bokeh.models.Panel(
+            child=bokeh.layouts.column(
+                time_controls.layout,
+                bokeh.layouts.row(field_controls.drop),
+                bokeh.layouts.row(field_controls.radio),
+                image_controls.column),
+            title="Data"),
+        bokeh.models.Panel(
+            child=bokeh.layouts.column(
+                bokeh.layouts.row(figure_drop),
+                border_row,
+                bokeh.layouts.row(slider),
+                bokeh.layouts.row(palette_controls.drop),
+                bokeh.layouts.row(mapper_limits.low_input),
+                bokeh.layouts.row(mapper_limits.high_input),
+                bokeh.layouts.row(mapper_limits.checkbox),
+                ),
+            title="Settings")
+        ])
+
     document = bokeh.plotting.curdoc()
     document.add_root(
         bokeh.layouts.column(
-            bokeh.layouts.row(figure_drop),
-            time_controls.layout,
-            border_row,
-            lcr_column,
-            bokeh.layouts.row(slider),
-            bokeh.layouts.row(field_controls.drop),
-            bokeh.layouts.row(field_controls.radio),
-            bokeh.layouts.row(palette_controls.drop),
-            bokeh.layouts.row(mapper_limits.low_input),
-            bokeh.layouts.row(mapper_limits.high_input),
-            bokeh.layouts.row(mapper_limits.checkbox),
+            tabs,
             name="controls"))
     document.add_root(figure_row)
+
+
+class Artist(object):
+    def __init__(self, figures, color_mapper):
+        self.figures = figures
+        self.color_mapper = color_mapper
+        self.viewers = {}
+        self.renderers = {}
+        self.previous_state = None
+        self.variable = None
+        self.ipressure = 0
+        self.itime = 0
+        for name, loader in data.LOADERS.items():
+            if not isinstance(loader, data.UMLoader):
+                continue
+            viewer = view.UMView(loader, self.color_mapper)
+            self.viewers[name] = viewer
+            self.renderers[name] = [
+                    viewer.add_figure(f)
+                    for f in self.figures]
+
+    def on_visible(self, state):
+        print("on_visible", state)
+        if self.previous_state is not None:
+             # Hide deselected states
+             lost_items = (
+                     set(self.flatten(self.previous_state)) -
+                     set(self.flatten(state)))
+             for key, i, _ in lost_items:
+                 self.renderers[key][i].visible = False
+
+        # Sync visible states with menu choices
+        states = set(self.flatten(state))
+        hidden = [(i, j) for i, j, v in states if not v]
+        visible = [(i, j) for i, j, v in states if v]
+        for i, j in hidden:
+            self.renderers[i][j].visible = False
+        for i, j in visible:
+            self.renderers[i][j].visible = True
+
+        self.previous_state = dict(state)
+        self.render()
+
+    @staticmethod
+    def flatten(state):
+        items = []
+        for key, flags in state.items():
+            items += [(key, i, f) for i, f in enumerate(flags)]
+        return items
+
+    def on_field(self, variable, ipressure, itime):
+        self.variable = variable
+        self.ipressure = ipressure
+        self.itime = itime
+        self.render()
+
+    def render(self):
+        if self.previous_state is None:
+            return
+        for name in self.previous_state:
+            viewer = self.viewers[name]
+            if isinstance(viewer, view.UMView):
+                viewer.render(self.variable, self.ipressure, self.itime)
 
 
 class EarthNetworks(object):
@@ -328,30 +395,14 @@ class RDT(object):
         return renderer
 
 
-class Observable(object):
-    def __init__(self):
-        self.uid = 0
-        self.listeners = []
-
-    def subscribe(self, listener):
-        self.uid += 1
-        self.listeners.append(listener)
-        return partial(self.unsubscribe, int(self.uid))
-
-    def unsubscribe(self, uid):
-        del self.listeners[uid]
-
-    def announce(self, *args):
-        for listener in self.listeners:
-            listener(*args)
-
-
 class FieldControls(Observable):
-    def __init__(self, variables, pressures):
+    def __init__(self, variables, pressures, pressure_variables):
+        self.variable = None
         self.itime = 0
         self.ipressure = 0
         self.variables = variables
         self.pressures = pressures
+        self.pressure_variables = pressure_variables
         self.drop = bokeh.models.Dropdown(
                 label="Variables",
                 menu=[(v, v) for v in self.variables],
@@ -377,6 +428,10 @@ class FieldControls(Observable):
     def render(self):
         if self.variable is None:
             return
+        if self.variable in self.pressure_variables:
+            self.radio.disabled = False
+        else:
+            self.radio.disabled = True
         self.announce(self.variable, self.ipressure, self.itime)
 
     def on_time_control(self, action):
@@ -478,92 +533,6 @@ class PaletteControls(object):
 
     def on_click(self, value):
         self.color_mapper.palette = self.palettes[value]
-
-
-class ImageControls(object):
-    def __init__(self, names, renderers):
-        self.names = names
-        self.renderers = renderers
-        self.state = [
-                (0, [True, False, False]),
-                (1, [True, False, False]),
-                (2, [True, False, False]),
-                (3, [False, False, False])]
-        self.previous_state = None
-        self.drops = []
-        self.groups = []
-        for i in range(3):
-            drop = bokeh.models.Dropdown(
-                    menu=[(n, n) for n in names],
-                    label=names[i],
-                    width=150)
-            drop.on_click(select(drop))
-            drop.on_change('value', self.on_dropdown(i))
-            self.drops.append(drop)
-
-            group = bokeh.models.CheckboxButtonGroup(
-                    labels=["Show"],
-                    active=[0])
-            group.on_change("active", self.on_radio(i))
-            self.groups.append(group)
-
-        self.render()
-
-    def on_dropdown(self, i):
-        def wrapper(attr, old, new):
-            if old != new:
-                _, flags = self.state[i]
-                self.state[i] = (self.names.index(new), flags)
-                self.render()
-        return wrapper
-
-    def on_radio(self, i):
-        def wrapper(attr, old, new):
-            _, flags = self.state[i]
-            for j in old:
-                if j not in new:
-                    flags[j] = False
-            for j in new:
-                if j not in old:
-                    flags[j] = True
-            self.render()
-        return wrapper
-
-    def render(self):
-        if self.previous_state is not None:
-            # Hide deselected states
-            lost_items = (
-                    set(self.flatten(self.previous_state)) -
-                    set(self.flatten(self.state)))
-            for i, j, _ in lost_items:
-                self.renderers[i][j].visible = False
-
-        # Sync visible states with menu choices
-        states = set(self.flatten(self.state))
-        hidden = [(i, j) for i, j, v in states if not v]
-        visible = [(i, j) for i, j, v in states if v]
-        for i, j in hidden:
-            self.renderers[i][j].visible = False
-        for i, j in visible:
-            self.renderers[i][j].visible = True
-
-        # Copy old state
-        self.previous_state = list(self.state)
-
-    @staticmethod
-    def flatten(state):
-        items = []
-        for index, flags in state:
-            items += [(index, i, f) for i, f in enumerate(flags)]
-        return items
-
-
-def select(dropdown):
-    def wrapped(new):
-        for label, value in dropdown.menu:
-            if value == new:
-                dropdown.label = label
-    return wrapped
 
 
 def change_label(widget):
