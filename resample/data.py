@@ -1,3 +1,4 @@
+import cartopy
 import glob
 import json
 import pandas as pd
@@ -9,12 +10,22 @@ import geo
 from collections import OrderedDict
 
 
+# Application data shared across documents
 FILE_DB = None
 LOADERS = {}
 IMAGES = OrderedDict()
-
+COASTLINES = {
+    "xs": [],
+    "ys": []
+}
+BORDERS = {
+    "xs": [],
+    "ys": []
+}
 
 def on_server_loaded(patterns):
+    global COASTLINES
+    global BORDERS
     global FILE_DB
     FILE_DB = FileDB(patterns)
     FILE_DB.sync()
@@ -32,7 +43,25 @@ def on_server_loaded(patterns):
     for name in [
             "Tropical Africa 4.4km"]:
         path = FILE_DB.files[name][0]
-        load_image(path, "relative_humidity", 0)
+        load_image(path, "relative_humidity", 0, 0)
+
+    # Load coastlines/borders
+    COASTLINES = feature_lines(cartopy.feature.COASTLINE)
+    BORDERS = feature_lines(cartopy.feature.BORDERS)
+
+
+def feature_lines(feature):
+    xs, ys = [], []
+    for geometry in feature.geometries():
+        for g in geometry:
+            lons, lats = g.xy
+            x, y = geo.web_mercator(lons, lats)
+            xs.append(x)
+            ys.append(y)
+    return {
+        "xs": xs,
+        "ys": ys
+    }
 
 
 class FileDB(object):
@@ -122,32 +151,13 @@ class GPM(object):
 class UMLoader(object):
     def __init__(self, paths):
         self.paths = paths
-        self.variables = load_variables(self.paths[0])
-        self.pressure_variables, self.pressures = self.load_heights(self.paths[0])
+        with netCDF4.Dataset(self.paths[0]) as dataset:
+            self.variables = self.load_variables(dataset)
+            self.pressure_variables, self.pressures = self.load_heights(dataset)
 
     @staticmethod
-    def load_heights(path):
-        variables = set()
-        with netCDF4.Dataset(path) as dataset:
-            pressures = dataset.variables["pressure"][:]
-            for variable, var in dataset.variables.items():
-                if variable == "pressure":
-                    continue
-                if "pressure" in var.dimensions:
-                    variables.add(variable)
-        return variables, pressures
-
-    def image(self, variable, ipressure, itime):
-        return load_image(
-                self.paths[0],
-                variable,
-                ipressure,
-                itime)
-
-
-def load_variables(path):
-    variables = []
-    with netCDF4.Dataset(path) as dataset:
+    def load_variables(dataset):
+        variables = []
         for v in dataset.variables:
             if "bnds" in v:
                 continue
@@ -156,7 +166,25 @@ def load_variables(path):
             if len(dataset.variables[v].dimensions) < 2:
                 continue
             variables.append(v)
-    return variables
+        return variables
+
+    @staticmethod
+    def load_heights(dataset):
+        variables = set()
+        pressures = dataset.variables["pressure"][:]
+        for variable, var in dataset.variables.items():
+            if variable == "pressure":
+                continue
+            if "pressure" in var.dimensions:
+                variables.add(variable)
+        return variables, pressures
+
+    def image(self, variable, ipressure, itime):
+        return load_image(
+                self.paths[0],
+                variable,
+                ipressure,
+                itime)
 
 
 def load_image(path, variable, ipressure, itime):

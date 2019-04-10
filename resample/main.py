@@ -1,7 +1,7 @@
 import bokeh.plotting
-import cartopy
 import numpy as np
 import os
+from functools import partial
 import data
 import view
 import geo
@@ -116,11 +116,9 @@ def main():
 
     features = []
     for figure in figures:
-        coastline = cartopy.feature.COASTLINE
-        coastline.scale = "50m"
         features += [
-            add_feature(figure, cartopy.feature.BORDERS),
-            add_feature(figure, coastline)]
+            add_feature(figure, data.COASTLINES),
+            add_feature(figure, data.BORDERS)]
     toggle = bokeh.models.CheckboxButtonGroup(
             labels=["Coastlines"],
             active=[0],
@@ -199,9 +197,13 @@ def main():
 
     figure_drop.on_click(on_click)
 
+    variables = image_loaders[0].variables
+    pressures = image_loaders[0].pressures
     field_controls = FieldControls(
-            image_viewers,
-            image_loaders)
+            variables,
+            pressures)
+    for viewer in image_viewers:
+        field_controls.subscribe(viewer.render)
 
     div = bokeh.models.Div(text="", width=10)
     border_row = bokeh.layouts.row(
@@ -326,14 +328,30 @@ class RDT(object):
         return renderer
 
 
-class FieldControls(object):
-    def __init__(self, viewers, loaders):
-        self.viewers = viewers
+class Observable(object):
+    def __init__(self):
+        self.uid = 0
+        self.listeners = []
+
+    def subscribe(self, listener):
+        self.uid += 1
+        self.listeners.append(listener)
+        return partial(self.unsubscribe, int(self.uid))
+
+    def unsubscribe(self, uid):
+        del self.listeners[uid]
+
+    def announce(self, *args):
+        for listener in self.listeners:
+            listener(*args)
+
+
+class FieldControls(Observable):
+    def __init__(self, variables, pressures):
         self.itime = 0
         self.ipressure = 0
-        self.variables = loaders[0].variables
-        self.pressures = loaders[0].pressures
-        self.pressure_variables = loaders[0].pressure_variables
+        self.variables = variables
+        self.pressures = pressures
         self.drop = bokeh.models.Dropdown(
                 label="Variables",
                 menu=[(v, v) for v in self.variables],
@@ -345,6 +363,7 @@ class FieldControls(object):
                 active=self.ipressure,
                 inline=True)
         self.radio.on_change("active", self.on_radio)
+        super().__init__()
 
     def on_click(self, value):
         self.variable = value
@@ -358,8 +377,7 @@ class FieldControls(object):
     def render(self):
         if self.variable is None:
             return
-        for viewer in self.viewers:
-            viewer.render(self.variable, self.ipressure, self.itime)
+        self.announce(self.variable, self.ipressure, self.itime)
 
     def on_time_control(self, action):
         if action == NEXT:
@@ -376,7 +394,7 @@ class FieldControls(object):
         self.render()
 
 
-class TimeControls(object):
+class TimeControls(Observable):
     def __init__(self):
         self.plus = bokeh.models.Button(label="+", width=140)
         self.plus.on_click(self.on_plus)
@@ -386,18 +404,13 @@ class TimeControls(object):
                 bokeh.layouts.widgetbox(self.minus, width=140),
                 bokeh.layouts.widgetbox(self.plus, width=140),
                 width=300)
-        self.listeners = []
-
-    def subscribe(self, listener):
-        self.listeners.append(listener)
+        super().__init__()
 
     def on_plus(self):
-        for listener in self.listeners:
-            listener(NEXT)
+        self.announce(NEXT)
 
     def on_minus(self):
-        for listener in self.listeners:
-            listener(PREVIOUS)
+        self.announce(PREVIOUS)
 
 
 class MapperLimits(object):
@@ -569,28 +582,13 @@ def change(widget, prop, dtype):
     return wrapper
 
 
-def add_feature(figure, feature):
-    source = bokeh.models.ColumnDataSource({
-        "xs": [],
-        "ys": []
-    })
-    renderer = figure.multi_line(
+def add_feature(figure, data):
+    source = bokeh.models.ColumnDataSource(data)
+    return figure.multi_line(
         xs="xs",
         ys="ys",
         source=source,
         color="white")
-    xs, ys = [], []
-    for geometry in feature.geometries():
-        for g in geometry:
-            lons, lats = g.xy
-            x, y = geo.web_mercator(lons, lats)
-            xs.append(x)
-            ys.append(y)
-    source.data = {
-        "xs": xs,
-        "ys": ys
-    }
-    return renderer
 
 
 if __name__.startswith("bk"):
