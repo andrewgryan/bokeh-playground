@@ -83,32 +83,20 @@ def main():
             bar_line_color="black")
         figure.add_layout(colorbar, 'center')
 
-    paths = data.FILE_DB.files
+    artist = Artist(figures, color_mapper)
     renderers = []
+    for _, r in artist.renderers.items():
+        renderers += r
+
     image_sources = []
-    image_viewers = []
+    for name, viewer in artist.viewers.items():
+        if isinstance(viewer, (view.UMView, view.GPMView)):
+            image_sources.append(viewer.source)
+
     image_loaders = []
-    for name in data.FILE_DB.names:
-        loader = data.LOADERS[name]
-        if isinstance(loader, data.RDT):
-            viewer = RDT(loader)
-        elif isinstance(loader, data.EarthNetworks):
-            viewer = EarthNetworks(loader)
-        elif isinstance(loader, data.GPM):
-            viewer = view.GPMView(loader, color_mapper)
+    for name, loader in data.LOADERS.items():
+        if isinstance(loader, (data.UMLoader, data.GPM)):
             image_loaders.append(loader)
-            image_viewers.append(viewer)
-            image_sources.append(viewer.source)
-        else:
-            viewer = view.UMView(loader, color_mapper)
-            image_loaders.append(loader)
-            image_viewers.append(viewer)
-            image_sources.append(viewer.source)
-        sub_renderers = []
-        for figure in figures:
-            renderer = viewer.add_figure(figure)
-            sub_renderers.append(renderer)
-        renderers.append(sub_renderers)
 
     features = []
     for figure in figures:
@@ -151,7 +139,7 @@ def main():
         value=1.0,
         show_value=False)
     custom_js = bokeh.models.CustomJS(
-            args=dict(renderers=sum(renderers, [])),
+            args=dict(renderers=renderers),
             code="""
             renderers.forEach(function (r) {
                 r.glyph.global_alpha = cb_obj.value
@@ -191,10 +179,7 @@ def main():
             variables,
             pressures,
             pressure_variables)
-    # for viewer in image_viewers:
-    #     field_controls.subscribe(viewer.render)
 
-    artist = Artist(figures, color_mapper)
     image_controls.subscribe(artist.on_visible)
     field_controls.subscribe(artist.on_field)
 
@@ -247,9 +232,14 @@ class Artist(object):
         self.ipressure = 0
         self.itime = 0
         for name, loader in data.LOADERS.items():
-            if not isinstance(loader, data.UMLoader):
-                continue
-            viewer = view.UMView(loader, self.color_mapper)
+            if isinstance(loader, data.RDT):
+                viewer = RDT(loader)
+            elif isinstance(loader, data.EarthNetworks):
+                viewer = EarthNetworks(loader)
+            elif isinstance(loader, data.GPM):
+                viewer = view.GPMView(loader, self.color_mapper)
+            else:
+                viewer = view.UMView(loader, self.color_mapper)
             self.viewers[name] = viewer
             self.renderers[name] = [
                     viewer.add_figure(f)

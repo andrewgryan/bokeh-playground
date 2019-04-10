@@ -211,6 +211,12 @@ def load_image(path, variable, ipressure, itime):
                 values = var[itime, ipressure, :]
             else:
                 values = var[itime, :]
+        print(values.shape, lons.shape, lats.shape)
+        if values.shape == (900, 1800):
+            values = scipy.ndimage.zoom(values, 0.5)
+            lons = lons[::2]
+            lats = lats[::2]
+        print(values.shape, lons.shape, lats.shape)
         image = stretch_image(lons, lats, values)
         IMAGES[key] = image
         return image
