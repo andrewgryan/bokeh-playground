@@ -111,11 +111,12 @@ class GPM(object):
     def __init__(self, paths):
         self.paths = paths
 
-    def image(self):
+    def image(self, itime):
         return load_image(
                 self.paths[0],
                 "precipitation_flux",
-                0)
+                0,
+                itime)
 
 
 class UMLoader(object):
@@ -136,11 +137,12 @@ class UMLoader(object):
                     variables.add(variable)
         return variables, pressures
 
-    def image(self, variable, ipressure):
+    def image(self, variable, ipressure, itime):
         return load_image(
                 self.paths[0],
                 variable,
-                ipressure)
+                ipressure,
+                itime)
 
 
 def load_variables(path):
@@ -157,8 +159,8 @@ def load_variables(path):
     return variables
 
 
-def load_image(path, variable, ipressure=None):
-    key = (path, variable, ipressure)
+def load_image(path, variable, ipressure, itime):
+    key = (path, variable, ipressure, itime)
     if key in IMAGES:
         print("already seen: {}".format(key))
         return IMAGES[key]
@@ -178,9 +180,9 @@ def load_image(path, variable, ipressure=None):
                 if "latitude" in d:
                     lats = dataset.variables[d][:]
             if len(var.dimensions) == 4:
-                values = var[0, ipressure, :]
+                values = var[itime, ipressure, :]
             else:
-                values = var[0, :]
+                values = var[itime, :]
         image = stretch_image(lons, lats, values)
         IMAGES[key] = image
         return image

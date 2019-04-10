@@ -3,7 +3,12 @@ import cartopy
 import numpy as np
 import os
 import data
+import view
 import geo
+
+
+NEXT = "NEXT"
+PREVIOUS = "PREVIOUS"
 
 
 def main():
@@ -89,18 +94,18 @@ def main():
         elif isinstance(loader, data.EarthNetworks):
             viewer = EarthNetworks(loader)
         elif isinstance(loader, data.GPM):
-            viewer = GPMViewer(loader)
+            viewer = view.GPMView(loader)
             image_loaders.append(loader)
             image_viewers.append(viewer)
             image_sources.append(viewer.source)
         else:
-            viewer = UMViewer(loader)
+            viewer = view.UMView(loader)
             image_loaders.append(loader)
             image_viewers.append(viewer)
             image_sources.append(viewer.source)
         sub_renderers = []
         for figure in figures:
-            if isinstance(viewer, (GPMViewer, UMViewer)):
+            if isinstance(viewer, (view.GPMView, view.UMView)):
                 renderer = viewer.add_figure(
                         figure,
                         color_mapper)
@@ -204,11 +209,14 @@ def main():
         bokeh.layouts.column(div),
         bokeh.layouts.column(dropdown))
 
+    time_controls = TimeControls()
+    time_controls.subscribe(field_controls.on_time_control)
 
     document = bokeh.plotting.curdoc()
     document.add_root(
         bokeh.layouts.column(
             bokeh.layouts.row(figure_drop),
+            time_controls.layout,
             border_row,
             lcr_column,
             bokeh.layouts.row(slider),
@@ -220,62 +228,6 @@ def main():
             bokeh.layouts.row(mapper_limits.checkbox),
             name="controls"))
     document.add_root(figure_row)
-
-
-class GPMViewer(object):
-    def __init__(self, loader):
-        self.loader = loader
-        self.empty = {
-                "x": [],
-                "y": [],
-                "dw": [],
-                "dh": [],
-                "image": []}
-        self.source = bokeh.models.ColumnDataSource(self.empty)
-
-    def render(self, variable, ipressure):
-        if variable != "precipitation_flux":
-            self.source.data = self.empty
-        else:
-            self.source.data = self.loader.image()
-
-    def add_figure(self, figure, color_mapper):
-        return figure.image(
-                x="x",
-                y="y",
-                dw="dw",
-                dh="dh",
-                image="image",
-                source=self.source,
-                color_mapper=color_mapper)
-
-
-class UMViewer(object):
-    def __init__(self, loader):
-        self.loader = loader
-        self.source = bokeh.models.ColumnDataSource({
-                "x": [],
-                "y": [],
-                "dw": [],
-                "dh": [],
-                "image": []})
-
-    def render(self, variable, ipressure):
-        if variable is None:
-            return
-        self.source.data = self.loader.image(
-                variable,
-                ipressure)
-
-    def add_figure(self, figure, color_mapper):
-        return figure.image(
-                x="x",
-                y="y",
-                dw="dw",
-                dh="dh",
-                image="image",
-                source=self.source,
-                color_mapper=color_mapper)
 
 
 class EarthNetworks(object):
@@ -377,6 +329,7 @@ class RDT(object):
 class FieldControls(object):
     def __init__(self, viewers, loaders):
         self.viewers = viewers
+        self.itime = 0
         self.ipressure = 0
         self.variables = loaders[0].variables
         self.pressures = loaders[0].pressures
@@ -406,7 +359,45 @@ class FieldControls(object):
         if self.variable is None:
             return
         for viewer in self.viewers:
-            viewer.render(self.variable, self.ipressure)
+            viewer.render(self.variable, self.ipressure, self.itime)
+
+    def on_time_control(self, action):
+        if action == NEXT:
+            self.next_time()
+        elif action == PREVIOUS:
+            self.previous_time()
+
+    def next_time(self):
+        self.itime += +1
+        self.render()
+
+    def previous_time(self):
+        self.itime += -1
+        self.render()
+
+
+class TimeControls(object):
+    def __init__(self):
+        self.plus = bokeh.models.Button(label="+", width=140)
+        self.plus.on_click(self.on_plus)
+        self.minus = bokeh.models.Button(label="-", width=140)
+        self.minus.on_click(self.on_minus)
+        self.layout = bokeh.layouts.row(
+                bokeh.layouts.widgetbox(self.minus, width=140),
+                bokeh.layouts.widgetbox(self.plus, width=140),
+                width=300)
+        self.listeners = []
+
+    def subscribe(self, listener):
+        self.listeners.append(listener)
+
+    def on_plus(self):
+        for listener in self.listeners:
+            listener(NEXT)
+
+    def on_minus(self):
+        for listener in self.listeners:
+            listener(PREVIOUS)
 
 
 class MapperLimits(object):
