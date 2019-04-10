@@ -233,9 +233,9 @@ class Artist(object):
         self.itime = 0
         for name, loader in data.LOADERS.items():
             if isinstance(loader, data.RDT):
-                viewer = RDT(loader)
+                viewer = view.RDT(loader)
             elif isinstance(loader, data.EarthNetworks):
-                viewer = EarthNetworks(loader)
+                viewer = view.EarthNetworks(loader)
             elif isinstance(loader, data.GPM):
                 viewer = view.GPMView(loader, self.color_mapper)
             else:
@@ -287,102 +287,6 @@ class Artist(object):
             viewer = self.viewers[name]
             if isinstance(viewer, view.UMView):
                 viewer.render(self.variable, self.ipressure, self.itime)
-
-
-class EarthNetworks(object):
-    def __init__(self, loader):
-        frame = loader.frame
-        if frame is not None:
-            x, y = geo.web_mercator(
-                    frame.longitude,
-                    frame.latitude)
-            date = frame.date
-            longitude = frame.longitude
-            latitude = frame.latitude
-            flash_type = frame.flash_type
-        else:
-            x, y = [], []
-            date = []
-            longitude = []
-            latitude = []
-            flash_type = []
-        self.source = bokeh.models.ColumnDataSource({
-            "x": x,
-            "y": y,
-            "date": date,
-            "longitude": longitude,
-            "latitude": latitude,
-            "flash_type": flash_type,
-        })
-
-    def add_figure(self, figure):
-        renderer = figure.circle(
-                x="x",
-                y="y",
-                size=10,
-                source=self.source)
-        tool = bokeh.models.HoverTool(
-                tooltips=[
-                    ('Time', '@date{%F}'),
-                    ('Lon', '@longitude'),
-                    ('Lat', '@latitude'),
-                    ('Flash type', '@flash_type')],
-                formatters={
-                    'date': 'datetime'
-                },
-                renderers=[renderer])
-        figure.add_tools(tool)
-        return renderer
-
-
-class RDT(object):
-    def __init__(self, loader):
-        self.color_mapper = bokeh.models.CategoricalColorMapper(
-                palette=bokeh.palettes.Spectral6,
-                factors=["0", "1", "2", "3", "4"])
-        self.source = bokeh.models.GeoJSONDataSource(
-                geojson=loader.geojson)
-
-    def add_figure(self, figure):
-        renderer = figure.patches(
-            xs="xs",
-            ys="ys",
-            fill_alpha=0,
-            line_width=2,
-            line_color={
-                'field': 'PhaseLife',
-                'transform': self.color_mapper},
-            source=self.source)
-        tool = bokeh.models.HoverTool(
-                tooltips=[
-                    ('CType', '@CType'),
-                    ('CRainRate', '@CRainRate'),
-                    ('ConvTypeMethod', '@ConvTypeMethod'),
-                    ('ConvType', '@ConvType'),
-                    ('ConvTypeQuality', '@ConvTypeQuality'),
-                    ('SeverityIntensity', '@SeverityIntensity'),
-                    ('MvtSpeed', '@MvtSpeed'),
-                    ('MvtDirection', '@MvtDirection'),
-                    ('NumIdCell', '@NumIdCell'),
-                    ('CTPressure', '@CTPressure'),
-                    ('CTPhase', '@CTPhase'),
-                    ('CTReff', '@CTReff'),
-                    ('LonG', '@LonG'),
-                    ('LatG', '@LatG'),
-                    ('ExpansionRate', '@ExpansionRate'),
-                    ('BTmin', '@BTmin'),
-                    ('BTmoy', '@BTmoy'),
-                    ('CTCot', '@CTCot'),
-                    ('CTCwp', '@CTCwp'),
-                    ('NbPosLightning', '@NbPosLightning'),
-                    ('SeverityType', '@SeverityType'),
-                    ('Surface', '@Surface'),
-                    ('Duration', '@Duration'),
-                    ('CoolingRate', '@CoolingRate'),
-                    ('Phase life', '@PhaseLife')],
-                renderers=[renderer])
-        figure.add_tools(tool)
-        return renderer
 
 
 class FieldControls(Observable):

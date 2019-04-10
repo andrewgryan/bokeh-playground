@@ -37,7 +37,7 @@ def on_server_loaded(patterns):
         elif name == "EarthNetworks":
             LOADERS[name] = EarthNetworks(paths)
         else:
-            LOADERS[name] = UMLoader(paths)
+            LOADERS[name] = UMLoader(paths, name=name)
 
     # Example of server-side pre-caching
     for name in [
@@ -149,9 +149,12 @@ class GPM(object):
 
 
 class UMLoader(object):
-    def __init__(self, paths):
+    def __init__(self, paths, name="UM"):
+        self.name = name
         self.paths = paths
         with netCDF4.Dataset(self.paths[0]) as dataset:
+            self.dimensions = self.load_dimensions(dataset)
+            self.times = self.load_times(dataset)
             self.variables = self.load_variables(dataset)
             self.pressure_variables, self.pressures = self.load_heights(dataset)
 
@@ -179,12 +182,53 @@ class UMLoader(object):
                 variables.add(variable)
         return variables, pressures
 
+    @staticmethod
+    def load_times(dataset):
+        times = {}
+        for v in dataset.variables:
+            var = dataset.variables[v]
+            if len(var.dimensions) != 1:
+                continue
+            if v.startswith("time"):
+                times[v] = netCDF4.num2date(
+                        var[:],
+                        units=var.units)
+        return times
+
+    @staticmethod
+    def load_dimensions(dataset):
+        return {v: var.dimensions
+            for v, var in dataset.variables.items()}
+
     def image(self, variable, ipressure, itime):
-        return load_image(
+        try:
+            dimension = self.dimensions[variable][0]
+        except KeyError as e:
+            if variable == "precipitation_flux":
+                variable = "stratiform_rainfall_rate"
+                dimension = self.dimensions[variable][0]
+            else:
+                raise e
+        times = self.times[dimension]
+        valid = times[itime]
+        initial = times[0]
+        hours = (valid - initial).total_seconds() / (60*60)
+        length = "T{:+}".format(int(hours))
+        data = load_image(
                 self.paths[0],
                 variable,
                 ipressure,
                 itime)
+        if variable in self.pressure_variables:
+            level = "{} hPa".format(int(self.pressures[ipressure]))
+        else:
+            level = "Surface"
+        data["name"] = [self.name]
+        data["valid"] = [valid]
+        data["initial"] = [initial]
+        data["length"] = [length]
+        data["level"] = [level]
+        return data
 
 
 def load_image(path, variable, ipressure, itime):
@@ -211,12 +255,6 @@ def load_image(path, variable, ipressure, itime):
                 values = var[itime, ipressure, :]
             else:
                 values = var[itime, :]
-        print(values.shape, lons.shape, lats.shape)
-        if values.shape == (900, 1800):
-            values = scipy.ndimage.zoom(values, 0.5)
-            lons = lons[::2]
-            lats = lats[::2]
-        print(values.shape, lons.shape, lats.shape)
         image = stretch_image(lons, lats, values)
         IMAGES[key] = image
         return image
