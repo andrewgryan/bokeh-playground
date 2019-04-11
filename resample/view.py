@@ -117,6 +117,12 @@ class UMView(object):
                 ipressure,
                 itime)
 
+        def on_change(attr, old, new):
+            print(attr, old, new)
+
+        self.source.selected.on_change("indices",
+                on_change)
+
     def add_figure(self, figure):
         renderer = figure.image(
                 x="x",

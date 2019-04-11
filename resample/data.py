@@ -154,6 +154,7 @@ class UMLoader(object):
         self.paths = paths
         with netCDF4.Dataset(self.paths[0]) as dataset:
             self.dimensions = self.load_dimensions(dataset)
+            self.dimension_variables = self.load_dimension_variables(dataset)
             self.times = self.load_times(dataset)
             self.variables = self.load_variables(dataset)
             self.pressure_variables, self.pressures = self.load_heights(dataset)
@@ -200,6 +201,12 @@ class UMLoader(object):
         return {v: var.dimensions
             for v, var in dataset.variables.items()}
 
+    @staticmethod
+    def load_dimension_variables(dataset):
+        return {d: dataset.variables[d][:]
+                for d in dataset.dimensions
+                if d in dataset.variables}
+
     def image(self, variable, ipressure, itime):
         try:
             dimension = self.dimensions[variable][0]
@@ -229,6 +236,43 @@ class UMLoader(object):
         data["length"] = [length]
         data["level"] = [level]
         return data
+
+    def series(self, variable, x0, y0, k):
+        lon0, lat0 = geo.plate_carree(x0, y0)
+        lon0, lat0 = lon0[0], lat0[0]  # Map to scalar
+        lons = geo.to_180(self.longitudes(variable))
+        lats = self.latitudes(variable)
+        i = np.argmin(np.abs(lons - lon0))
+        j = np.argmin(np.abs(lats - lat0))
+        return self.series_ijk(variable, i, j, k)
+
+    def longitudes(self, variable):
+        return self._lookup("longitude", variable)
+
+    def latitudes(self, variable):
+        return self._lookup("latitude", variable)
+
+    def _lookup(self, prefix, variable):
+        dims = self.dimensions[variable]
+        for dim in dims:
+            if dim.startswith(prefix):
+                return self.dimension_variables[dim]
+
+    def series_ijk(self, variable, i, j, k):
+        path = self.paths[0]
+        dimension = self.dimensions[variable][0]
+        times = self.times[dimension]
+        with netCDF4.Dataset(path) as dataset:
+            var = dataset.variables[variable]
+            if len(var.dimensions) == 4:
+                values = var[:, k, j, i]
+            elif len(var.dimensions) == 3:
+                values = var[:, j, i]
+            else:
+                raise NotImplementedError("3 or 4 dimensions only")
+        return {
+            "x": times,
+            "y": values}
 
 
 def load_image(path, variable, ipressure, itime):

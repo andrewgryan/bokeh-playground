@@ -32,6 +32,15 @@
         width: 20px;
         z-index: 2;
     }
+    .series-panel {
+        position: absolute;
+        right: 0;
+        top: 0;
+        margin: 0;
+        padding: 0;
+        width: auto;
+        z-index: 2;
+    }
 </style>
 {% endblock %}
 {% block contents %}
@@ -44,6 +53,11 @@
             {% endif %}
             {% if root.name == "height" %}
                 <div class="height-panel">
+                {{ embed(root) | indent(10) }}
+                </div>
+            {% endif %}
+            {% if root.name == "series" %}
+                <div class="series-panel">
                 {{ embed(root) | indent(10) }}
                 </div>
             {% endif %}

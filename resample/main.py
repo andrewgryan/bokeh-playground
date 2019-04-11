@@ -1,4 +1,5 @@
 import bokeh.plotting
+import bokeh.events
 import numpy as np
 import os
 import data
@@ -213,12 +214,105 @@ def main():
             title="Settings")
         ])
 
+    # Series sub-figure widget
+    series_figure = bokeh.plotting.figure(
+                plot_width=400,
+                plot_height=200,
+                x_axis_type="datetime",
+                toolbar_location=None,
+                border_fill_alpha=0)
+    series_figure.toolbar.logo = None
+    series_row = bokeh.layouts.row(
+            series_figure,
+            name="series")
+
+    def place_marker(figure):
+        source = bokeh.models.ColumnDataSource({
+            "x": [],
+            "y": []})
+        figure.circle(
+                x="x",
+                y="y",
+                color="red",
+                source=source)
+        def cb(event):
+            source.data = {
+                    "x": [event.x],
+                    "y": [event.y]}
+        return cb
+
+    series = Series(series_figure)
+    field_controls.subscribe(series.on_field)
+    for f in figures:
+        f.on_event(bokeh.events.Tap, series.on_tap)
+        f.on_event(bokeh.events.Tap, place_marker(f))
+
     document = bokeh.plotting.curdoc()
     document.add_root(
         bokeh.layouts.column(
             tabs,
             name="controls"))
+    document.add_root(series_row)
     document.add_root(figure_row)
+
+
+from itertools import cycle
+
+
+class Series(object):
+    def __init__(self, figure):
+        self.figure = figure
+        self.sources = {}
+        items = []
+        colors = cycle(["red", "green", "blue"])
+        for name, loader in data.LOADERS.items():
+            if not isinstance(loader, data.UMLoader):
+                continue
+            source = bokeh.models.ColumnDataSource({
+                "x": [],
+                "y": [],
+            })
+            color = next(colors)
+            r = self.figure.line(
+                    x="x",
+                    y="y",
+                    color=color,
+                    source=source)
+            items.append((name, [r]))
+            self.sources[name] = source
+
+        legend = bokeh.models.Legend(items=items,
+                orientation="horizontal",
+                click_policy="hide")
+        self.figure.add_layout(legend, "below")
+
+        # Underlying state
+        self.x = None
+        self.y = None
+        self.variable = None
+        self.ipressure = 0
+
+    def on_field(self, variable, ipressure, itime):
+        self.variable = variable
+        self.ipressure = ipressure
+        self.render()
+
+    def on_tap(self, event):
+        self.x = event.x
+        self.y = event.y
+        self.render()
+
+    def render(self):
+        if any_none(self, ["x", "y", "variable"]):
+                return
+        self.figure.title.text = self.variable
+        for name, source in self.sources.items():
+            loader = data.LOADERS[name]
+            source.data = loader.series(self.variable, self.x, self.y, self.ipressure)
+
+
+def any_none(obj, attrs):
+    return any([getattr(obj, x) is None for x in attrs])
 
 
 class Artist(object):
