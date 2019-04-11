@@ -265,7 +265,7 @@ class Series(object):
         self.figure = figure
         self.sources = {}
         items = []
-        colors = cycle(["red", "green", "blue"])
+        colors = cycle(bokeh.palettes.Colorblind[6][::-1])
         for name, loader in data.LOADERS.items():
             if not isinstance(loader, data.UMLoader):
                 continue
@@ -278,6 +278,7 @@ class Series(object):
                     x="x",
                     y="y",
                     color=color,
+                    line_width=1.5,
                     source=source)
             items.append((name, [r]))
             self.sources[name] = source
