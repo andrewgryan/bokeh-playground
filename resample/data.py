@@ -1,3 +1,6 @@
+import os
+import datetime as dt
+import re
 import cartopy
 import glob
 import json
@@ -148,10 +151,19 @@ class GPM(object):
                 itime)
 
 
+def initial_time(path):
+    name = os.path.basename(path)
+    groups = re.search(r"[0-9]{8}T[0-9]{4}Z", path)
+    if groups:
+        return dt.datetime.strptime(groups[0], "%Y%m%dT%H%MZ")
+
+
 class UMLoader(object):
     def __init__(self, paths, name="UM"):
         self.name = name
         self.paths = paths
+        self.initial_times = {initial_time(p): p for p in paths}
+        print(self.initial_times)
         with netCDF4.Dataset(self.paths[0]) as dataset:
             self.dimensions = self.load_dimensions(dataset)
             self.dimension_variables = self.load_dimension_variables(dataset)

@@ -1,3 +1,4 @@
+from enum import Enum
 import bokeh.plotting
 import bokeh.events
 import numpy as np
@@ -8,6 +9,10 @@ import images
 import geo
 from util import Observable, select
 
+
+class Mode(Enum):
+    TIMESTEP = 0
+    RUN = 1
 
 NEXT = "NEXT"
 PREVIOUS = "PREVIOUS"
@@ -388,6 +393,7 @@ class Artist(object):
 class FieldControls(Observable):
     def __init__(self, variables, pressures, pressure_variables):
         self.variable = None
+        self.mode = Mode.TIMESTEP
         self.itime = 0
         self.ipressure = 0
         self.variables = variables
@@ -429,6 +435,8 @@ class FieldControls(Observable):
             self.next_time()
         elif action == PREVIOUS:
             self.previous_time()
+        elif isinstance(action, Mode):
+            self.mode = action
 
     def next_time(self):
         self.itime += +1
@@ -441,13 +449,24 @@ class FieldControls(Observable):
 
 class TimeControls(Observable):
     def __init__(self):
-        self.plus = bokeh.models.Button(label="+", width=140)
+        self.plus = bokeh.models.Button(label="+", width=80)
         self.plus.on_click(self.on_plus)
-        self.minus = bokeh.models.Button(label="-", width=140)
+        self.minus = bokeh.models.Button(label="-", width=80)
         self.minus.on_click(self.on_minus)
+        self.modes = bokeh.models.Dropdown(
+                label="Time step",
+                menu=[("Time step", "Time step"), ("Model run", "Model run")],
+                width=80)
+        self.modes.on_click(select(self.modes))
+        self.modes.on_click(self.on_mode)
+        sizing_mode = "fixed"
         self.layout = bokeh.layouts.row(
-                bokeh.layouts.widgetbox(self.minus, width=140),
-                bokeh.layouts.widgetbox(self.plus, width=140),
+                bokeh.layouts.column(self.minus, width=90,
+                    sizing_mode=sizing_mode),
+                bokeh.layouts.column(self.modes, width=100,
+                    sizing_mode=sizing_mode),
+                bokeh.layouts.column(self.plus, width=90,
+                    sizing_mode=sizing_mode),
                 width=300)
         super().__init__()
 
@@ -456,6 +475,12 @@ class TimeControls(Observable):
 
     def on_minus(self):
         self.announce(PREVIOUS)
+
+    def on_mode(self, value):
+        if value == "Time step":
+            self.announce(Mode.TIMESTEP)
+        else:
+            self.announce(Mode.RUN)
 
 
 class MapperLimits(object):
