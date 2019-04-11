@@ -226,10 +226,7 @@ def main():
             series_figure,
             name="series")
 
-    def place_marker(figure):
-        source = bokeh.models.ColumnDataSource({
-            "x": [],
-            "y": []})
+    def place_marker(figure, source):
         figure.circle(
                 x="x",
                 y="y",
@@ -241,11 +238,15 @@ def main():
                     "y": [event.y]}
         return cb
 
+    marker_source = bokeh.models.ColumnDataSource({
+            "x": [],
+            "y": []})
+
     series = Series(series_figure)
     field_controls.subscribe(series.on_field)
     for f in figures:
         f.on_event(bokeh.events.Tap, series.on_tap)
-        f.on_event(bokeh.events.Tap, place_marker(f))
+        f.on_event(bokeh.events.Tap, place_marker(f, marker_source))
 
     document = bokeh.plotting.curdoc()
     document.add_root(
