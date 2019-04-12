@@ -82,6 +82,7 @@ class EarthNetworks(object):
     def __init__(self, paths):
         self.paths = paths
         self.frame = self.read(paths)
+        print(self.frame)
 
     @staticmethod
     def read(csv_files):
@@ -94,7 +95,7 @@ class EarthNetworks(object):
                 parse_dates=[1],
                 converters={0: EarthNetworks.flash_type},
                 usecols=[0, 1, 2, 3],
-                names=["flash_type", "date", "longitude", "latitude"],
+                names=["flash_type", "date", "latitude", "longitude"],
                 header=None)
             frames.append(frame)
         if len(frames) == 0:
@@ -119,7 +120,6 @@ class RDT(object):
 
     @staticmethod
     def load(path):
-        print("loading: {}".format(path))
         with open(path) as stream:
             rdt = json.load(stream)
 
@@ -163,7 +163,6 @@ class UMLoader(object):
         self.name = name
         self.paths = paths
         self.initial_times = {initial_time(p): p for p in paths}
-        print(self.initial_times)
         with netCDF4.Dataset(self.paths[0]) as dataset:
             self.dimensions = self.load_dimensions(dataset)
             self.dimension_variables = self.load_dimension_variables(dataset)
