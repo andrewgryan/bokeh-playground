@@ -3,32 +3,78 @@ import data
 import datetime as dt
 import bokeh.plotting
 import bokeh.layouts
+from collections import namedtuple
+from observer import Observable
 
 
 FORMAT = "%Y-%m-%d %H:%M"
 
 
 def main():
-    div = bokeh.models.Div()
+    date_picker = bokeh.models.DatePicker()
+    button = bokeh.models.Button()
 
-    model_times = ModelTimes()
-    model_times.render()
+    def on_click():
+        date_picker.value = dt.datetime(1986, 1, 12)
+    button.on_click(on_click)
 
+    model_nav = ModelNavigation()
+    model_nav.render()
+    view = View()
+    model_nav.subscribe(view.on_state)
     document = bokeh.plotting.curdoc()
     document.add_root(
             bokeh.layouts.column(
-                model_times.layout,
-                div,
+                button,
+                date_picker,
+                model_nav.layout,
+                view.div,
                 sizing_mode="stretch_width"))
 
 
-class ModelTimes(object):
+State = namedtuple("State", (
+            "model",
+            "variable",
+            "initial",
+            "valid",
+            "length",
+            "pressure"))
+
+
+class View(object):
+    def __init__(self):
+        self.div = bokeh.models.Div()
+
+    def on_state(self, state):
+        print("on_state()")
+        self.div.text = """
+            <ul>
+                <li>Model: {}</li>
+                <li>Variable: {}</li>
+                <li>Initial: {}</li>
+                <li>Valid: {}</li>
+                <li>Length: {}</li>
+                <li>Pressure: {}</li>
+            </ul>
+        """.format(
+                str(state.model),
+                str(state.variable),
+                str(state.initial),
+                str(state.valid),
+                str(state.length),
+                str(state.pressure))
+
+
+class ModelNavigation(Observable):
     def __init__(self):
         self.name = None
-        self.run_times = []
+        self.variable = None
+        self.initial_time = None
         self.valid_time = None
-        self.valid_times = []
+        self.pressure = None
         self.variables = []
+        self.initial_times = []
+        self.valid_times = []
         self.pressures = []
         self.units = "YYYYMMDD"
 
@@ -81,13 +127,14 @@ class ModelTimes(object):
                     self.dropdowns["pressure"],
                     sizing_mode="stretch_width"),
                 sizing_mode="stretch_width")
+        super().__init__()
 
     def on_run(self, attr, old, new):
         print(new)
         valid_dropdown = self.dropdowns["valid"]
         valid_dropdown.menu = [("loading", "loading")]
-        time = to_time(new)
-        path = data.PATHS[(self.name, time)]
+        self.initial_time = to_time(new)
+        path = data.PATHS[(self.name, self.initial_time)]
         self.valid_times = data.valid_times(path)
         self.render()
 
@@ -95,12 +142,13 @@ class ModelTimes(object):
         values = [v for _, v in self.dropdowns["valid"].menu]
         i = values.index(new)
         self.valid_time = self.valid_times[i]
-        print(self.valid_time)
+        self.render()
 
     def on_name(self, attr, old, new):
         print(new)
         self.name = new
-        self.run_times = data.RUN_TIMES[self.name]
+        self.variables = data.VARIABLES[self.name]
+        self.initial_times = data.RUN_TIMES[self.name]
         self.valid_times = []
         self.render()
 
@@ -120,10 +168,10 @@ class ModelTimes(object):
         self.render()
 
     def render(self):
-        if len(self.run_times) == 0:
+        if len(self.initial_times) == 0:
             labels = [("Select model")]
         else:
-            labels = [to_stamp(t) for t in self.run_times]
+            labels = [to_stamp(t) for t in self.initial_times]
         self.dropdowns["run"].menu = menu(labels)
         if len(self.valid_times) == 0:
             labels = [("Select initial time")]
@@ -139,20 +187,43 @@ class ModelTimes(object):
         dropdown = self.dropdowns["valid"]
         dropdown.menu = menu(labels)
 
-        if self.valid_time is not None:
-            if self.units == "T+":
-                t0 = np.datetime64(self.valid_times[0], 's')
-                t1 = np.datetime64(self.valid_time, 's')
-                length = (t1 - t0).astype('timedelta64[h]')
-                label = format_length(length)
-            else:
-                label = to_stamp(self.valid_time)
-            self.dropdowns["valid"].label = label
+        if len(self.valid_times) > 0:
+            if self.valid_time is not None:
+                if self.units == "T+":
+                    label = format_length(self.length)
+                else:
+                    label = to_stamp(self.valid_time)
+                self.dropdowns["valid"].label = label
 
         if len(self.variables) == 0:
             self.dropdowns["variable"].menu = menu(["Select model"])
+        else:
+            self.dropdowns["variable"].menu = menu(self.variables)
+
         if len(self.pressures) == 0:
             self.dropdowns["pressure"].menu = menu(["Select variable"])
+
+        self.announce(self.state)
+
+    @property
+    def length(self):
+        if self.initial_time is None:
+            return
+        if self.valid_time is None:
+            return
+        t0 = np.datetime64(self.initial_time, 's')
+        t1 = np.datetime64(self.valid_time, 's')
+        return (t1 - t0).astype('timedelta64[h]')
+
+    @property
+    def state(self):
+        return State(
+                self.name,
+                self.variable,
+                self.initial_time,
+                self.valid_time,
+                self.length,
+                self.pressure)
 
 
 def select(dropdown):

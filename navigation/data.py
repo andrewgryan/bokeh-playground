@@ -6,26 +6,39 @@ import glob
 import netCDF4
 
 
+FILE_DB = {}
 PATHS = {}
 RUN_TIMES = {}
 VALID_TIMES = {}
 MODEL_NAMES = []
+VARIABLES = {}
 
 
 def load():
     global PATHS
     global MODEL_NAMES
+    global FILE_DB
+    global VARIABLES
     global RUN_TIMES
     global VALID_TIMES
-    model_dir = os.path.expanduser("~/cache")
-    for name, pattern in [
+
+    offline = False
+    if offline:
+        model_dir = os.path.expanduser("~/cache")
+        patterns = [
             ("GA6", "highway_ga6*"),
             ("TAkm4p4", "highway_takm4p4*"),
-            ("OS42", "*os42*")]:
+            ("OS42", "*os42*")]
+    else:
+        model_dir = os.path.expanduser("~/buckets/stephen-sea-public-london/model_data")
+        patterns = [("GA6", "highway_ga6*")]
+
+    for name, pattern in patterns:
         MODEL_NAMES.append(name)
         full_pattern = os.path.join(model_dir, pattern)
         print("listing: {}".format(full_pattern))
         paths = glob.glob(full_pattern)
+        FILE_DB[name] = paths
         for path in paths:
             run_time = parse_time(path)
             key = (name, run_time)
@@ -33,6 +46,11 @@ def load():
 
         RUN_TIMES[name] = [
             parse_time(path) for path in paths]
+
+    for name, paths in FILE_DB.items():
+        with netCDF4.Dataset(paths[-1]) as dataset:
+            variables = [name for name in dataset.variables]
+        VARIABLES[name] = variables
 
     print("ready")
 
