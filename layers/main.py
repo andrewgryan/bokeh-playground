@@ -9,20 +9,30 @@ class Application(object):
         self.figure = bokeh.plotting.figure()
         self.layers = []
         self.buttons = {
-            "layer": bokeh.models.Button(label="Add layer")
+            "add": bokeh.models.Button(label="Add layer"),
+            "edit": bokeh.models.CheckboxButtonGroup(labels=["Edit layer"])
         }
-        self.buttons["layer"].on_click(self.add_layer)
+        self.buttons["add"].on_click(self.add_layer)
+        self.buttons["edit"].on_change("active", self.edit_mode)
         self.checkbox_group = bokeh.models.CheckboxGroup(
             labels=[],
             active=[]
         )
         self.checkbox_group.on_change("active", self.on_checkbox)
+        self.dropdowns = {
+            "layer": bokeh.models.Dropdown(label="Layers")
+        }
+        autolabel(self.dropdowns["layer"])
+        self.dropdowns["layer"].on_change("value", self.on_layer)
         self.editor = Editor()
         self.root = bokeh.layouts.column(
             self.figure,
+            self.editor.dropdowns["color"],
             bokeh.layouts.row(
-                self.editor.dropdowns["color"],
-                self.buttons["layer"]),
+                self.buttons["add"],
+                self.buttons["edit"],
+                self.dropdowns["layer"],
+            ),
             self.checkbox_group
         )
         self._i = 0
@@ -32,6 +42,7 @@ class Application(object):
             layer.renderers[0].visible = i in new
 
     def add_layer(self):
+        name = "Layer: {}".format(self._i)
         xs = np.array([[0, 1, 1, 0, 0]]) + self._i
         ys = np.array([[0, 0, 1, 1, 0]]) + self._i
         source = bokeh.models.ColumnDataSource({
@@ -42,13 +53,26 @@ class Application(object):
         layer = Layer(source)
         layer.attach(self.figure)
         self.layers.append(layer)
-        self.checkbox_group.labels.append("Layer: {}".format(self._i))
+        self.checkbox_group.labels.append(name)
         self.checkbox_group.active.append(self._i)
+        self.dropdowns["layer"].menu.append((name, name))
         self._i += 1
+
+    def edit_mode(self, attr, old, new):
+        self.editor.active = 0 in new
+
+    def on_layer(self, attr, old, new):
+        for i, (key, value) in enumerate(self.dropdowns["layer"].menu):
+            if value != new:
+                continue
+            self.editor.layer = self.layers[i]
+            return
 
 
 class Editor(object):
     def __init__(self, line_color="black"):
+        self.active = False
+        self.layer = None
         self.line_color = line_color
         self.dropdowns = {
             "color": bokeh.models.Dropdown(label="Color", menu=[
@@ -64,6 +88,8 @@ class Editor(object):
 
     def on_color(self, attr, old, new):
         self.line_color = new
+        if (self.active) and (self.layer is not None):
+            self.layer.source.data["line_color"] = [self.line_color]
 
 
 class Layer(object):
