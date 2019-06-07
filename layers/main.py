@@ -10,10 +10,8 @@ class Application(object):
         self.layers = []
         self.buttons = {
             "add": bokeh.models.Button(label="Add layer"),
-            "edit": bokeh.models.CheckboxButtonGroup(labels=["Edit layer"])
         }
         self.buttons["add"].on_click(self.add_layer)
-        self.buttons["edit"].on_change("active", self.edit_mode)
         self.checkbox_group = bokeh.models.CheckboxGroup(
             labels=[],
             active=[]
@@ -30,7 +28,7 @@ class Application(object):
             self.editor.dropdowns["color"],
             bokeh.layouts.row(
                 self.buttons["add"],
-                self.buttons["edit"],
+                self.editor.buttons["edit"],
                 self.dropdowns["layer"],
             ),
             self.checkbox_group
@@ -39,7 +37,8 @@ class Application(object):
 
     def on_checkbox(self, attr, old, new):
         for i, layer in enumerate(self.layers):
-            layer.renderers[0].visible = i in new
+            for renderer in layer.renderers:
+                renderer.visible = i in new
 
     def add_layer(self):
         name = "Layer: {}".format(self._i)
@@ -58,9 +57,6 @@ class Application(object):
         self.dropdowns["layer"].menu.append((name, name))
         self._i += 1
 
-    def edit_mode(self, attr, old, new):
-        self.editor.active = 0 in new
-
     def on_layer(self, attr, old, new):
         for i, (key, value) in enumerate(self.dropdowns["layer"].menu):
             if value != new:
@@ -74,9 +70,15 @@ class Editor(object):
         self.active = False
         self.layer = None
         self.line_color = line_color
+        self.buttons = {
+            "edit": bokeh.models.CheckboxButtonGroup(labels=["Edit layer"])
+        }
+        self.buttons["edit"].on_change("active", self.on_active)
         self.dropdowns = {
             "color": bokeh.models.Dropdown(label="Color", menu=[
                 ("red", "red"),
+                ("orange", "orange"),
+                ("yellow", "yellow"),
                 ("green", "green"),
                 ("blue", "blue"),
                 ("black", "black"),
@@ -86,6 +88,9 @@ class Editor(object):
         for dropdown in self.dropdowns.values():
             autolabel(dropdown)
 
+    def on_active(self, attr, old, new):
+        self.active = 0 in new
+
     def on_color(self, attr, old, new):
         self.line_color = new
         if (self.active) and (self.layer is not None):
@@ -94,10 +99,10 @@ class Editor(object):
 
 class Layer(object):
     def __init__(self, source):
+        self.renderers = []
         self.source = source
         self.glyph = bokeh.models.MultiLine(
             xs="xs", ys="ys", line_color="line_color")
-        self.renderers = []
 
     def attach(self, figure):
         renderer = figure.add_glyph(self.source, self.glyph)
