@@ -66,7 +66,7 @@ class Application(object):
             if value != new:
                 continue
             self.editor.layer = self.layers[i]
-           return
+            return
 
 
 class Editor(object):
