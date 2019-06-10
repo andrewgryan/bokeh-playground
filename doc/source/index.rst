@@ -3,8 +3,13 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Bokeh playground's documentation!
-============================================
+Bokeh playground
+================
+
+A collection of applications to get to grips with the design
+philosophy of Bokeh. Web applications are difficult to unit
+test since they rely on a running server orchestrating messages
+between client-side JavaScript and back-end Python.
 
 .. toctree::
    :maxdepth: 2
