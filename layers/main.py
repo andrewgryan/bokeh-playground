@@ -1,8 +1,4 @@
 """
-
-Layers
-======
-
 Any geospatial application can benefit from a simple
 layer implementation. Allowing users to craft, add, remove and even
 save layers is very important for exploring data.
