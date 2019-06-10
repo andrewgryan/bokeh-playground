@@ -6,7 +6,7 @@ save layers is vital to enable data exploration.
 The decomposition of responsibilities between the :class:`Editor`,
 :class:`Setting` and :class:`Layer` should be straight forward. The editor is
 a controller/view on a settings object, that manipulates the settings object state. The
-settings object(s) are :class:`Observable`(s) that the Layer(s) respond to
+settings object(s) are :class:`Observable` that the Layer(s) respond to
 by mirroring themselves.
 
 """
@@ -40,6 +40,7 @@ class Application(object):
     def __init__(self):
         self.figure = bokeh.plotting.figure()
         self.layers = []
+        self.settings = []
         self.buttons = {
             "add": bokeh.models.Button(label="Add layer"),
         }
@@ -81,9 +82,16 @@ class Application(object):
             "ys": ys,
             "line_color": [self.editor.line_color]
         })
+
         layer = Layer(source)
         layer.attach(self.figure)
         self.layers.append(layer)
+
+        setting = Setting()
+        setting.subscribe(layer.on_setting)
+        setting.line_color = self.editor.line_color
+        self.settings.append(setting)
+
         self.checkbox_group.labels.append(name)
         self.checkbox_group.active.append(self._i)
         self.dropdowns["layer"].menu.append((name, name))
@@ -93,20 +101,27 @@ class Application(object):
         for i, (key, value) in enumerate(self.dropdowns["layer"].menu):
             if value != new:
                 continue
-            self.editor.layer = self.layers[i]
+            self.editor.setting = self.settings[i]
             return
 
 
 class Setting(Observable):
     """Observable controlled by an Editor used to sync Layer(s)"""
-    pass
+    @property
+    def line_color(self):
+        return getattr(self, "_line_color")
+
+    @line_color.setter
+    def line_color(self, value):
+        self._line_color = value
+        self.announce(self)
 
 
 class Editor(object):
     """Responsible for editing layer settings"""
     def __init__(self, line_color="black"):
         self.active = False
-        self.layer = None
+        self.setting = None
         self.line_color = line_color
         self.buttons = {
             "edit": bokeh.models.CheckboxButtonGroup(labels=["Edit layer"])
@@ -131,8 +146,8 @@ class Editor(object):
 
     def on_color(self, attr, old, new):
         self.line_color = new
-        if (self.active) and (self.layer is not None):
-            self.layer.source.data["line_color"] = [self.line_color]
+        if (self.active) and (self.setting is not None):
+            self.setting.line_color = self.line_color
 
 
 class Layer(object):
@@ -142,6 +157,9 @@ class Layer(object):
         self.source = source
         self.glyph = bokeh.models.MultiLine(
             xs="xs", ys="ys", line_color="line_color")
+
+    def on_setting(self, setting):
+        self.source.data["line_color"] = [setting.line_color]
 
     def attach(self, figure):
         renderer = figure.add_glyph(self.source, self.glyph)
