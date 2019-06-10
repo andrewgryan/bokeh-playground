@@ -2,7 +2,7 @@
 Layer design pattern
 ====================
 
-.. automodule layers.main
+.. automodule:: layers.main
     :members:
 
 
