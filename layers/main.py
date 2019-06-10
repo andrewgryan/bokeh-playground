@@ -41,15 +41,11 @@ class Application(object):
         self.figure = bokeh.plotting.figure()
         self.layers = []
         self.settings = []
+        self.collection = Collection()
         self.buttons = {
             "add": bokeh.models.Button(label="Add layer"),
         }
         self.buttons["add"].on_click(self.add_layer)
-        self.checkbox_group = bokeh.models.CheckboxGroup(
-            labels=[],
-            active=[]
-        )
-        self.checkbox_group.on_change("active", self.on_checkbox)
         self.dropdowns = {
             "layer": bokeh.models.Dropdown(label="Layers")
         }
@@ -64,14 +60,9 @@ class Application(object):
                 self.editor.buttons["edit"],
                 self.dropdowns["layer"],
             ),
-            self.checkbox_group
+            self.collection.checkbox_group
         )
         self._i = 0
-
-    def on_checkbox(self, attr, old, new):
-        for i, layer in enumerate(self.layers):
-            for renderer in layer.renderers:
-                renderer.visible = i in new
 
     def add_layer(self):
         name = "Layer: {}".format(self._i)
@@ -92,8 +83,8 @@ class Application(object):
         setting.line_color = self.editor.line_color
         self.settings.append(setting)
 
-        self.checkbox_group.labels.append(name)
-        self.checkbox_group.active.append(self._i)
+        self.collection.add_layer(layer, name, self._i)
+
         self.dropdowns["layer"].menu.append((name, name))
         self._i += 1
 
@@ -103,6 +94,26 @@ class Application(object):
                 continue
             self.editor.setting = self.settings[i]
             return
+
+
+class Collection(object):
+    def __init__(self):
+        self.layers = []
+        self.checkbox_group = bokeh.models.CheckboxGroup(
+            labels=[],
+            active=[]
+        )
+        self.checkbox_group.on_change("active", self.on_checkbox)
+
+    def add_layer(self, layer, name, i):
+        self.layers.append(layer)
+        self.checkbox_group.labels.append(name)
+        self.checkbox_group.active.append(i)
+
+    def on_checkbox(self, attr, old, new):
+        for i, layer in enumerate(self.layers):
+            for renderer in layer.renderers:
+                renderer.visible = i in new
 
 
 class Setting(Observable):
@@ -137,17 +148,21 @@ class Editor(object):
                 ("black", "black"),
             ])
         }
-        self.dropdowns["color"].on_change("value", self.on_color)
+        self.dropdowns["color"].on_change(
+            "value", self.on_change("line_color"))
         for dropdown in self.dropdowns.values():
             autolabel(dropdown)
 
     def on_active(self, attr, old, new):
         self.active = 0 in new
 
-    def on_color(self, attr, old, new):
-        self.line_color = new
-        if (self.active) and (self.setting is not None):
-            self.setting.line_color = self.line_color
+    def on_change(self, prop):
+        """Pass user interaction on to underlying setting object"""
+        def callback(attr, old, new):
+            setattr(self, prop, new)
+            if (self.active) and (self.setting is not None):
+                setattr(self.setting, prop, new)
+        return callback
 
 
 class Layer(object):
