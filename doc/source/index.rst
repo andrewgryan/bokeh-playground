@@ -15,6 +15,8 @@ between client-side JavaScript and back-end Python.
    :maxdepth: 2
    :caption: Contents:
 
+   layer
+
 
 
 Indices and tables
