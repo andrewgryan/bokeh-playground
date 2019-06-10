@@ -5,7 +5,6 @@ import numpy as np
 
 class Application(object):
     def __init__(self):
-        self.line_color = "black"
         self.figure = bokeh.plotting.figure()
         self.layers = []
         self.buttons = {
@@ -62,7 +61,7 @@ class Application(object):
             if value != new:
                 continue
             self.editor.layer = self.layers[i]
-            return
+           return
 
 
 class Editor(object):
