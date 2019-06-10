@@ -1,9 +1,18 @@
-"""Scoping idea for layered interface"""
+"""
+
+Layers
+======
+
+Any geospatial application can benefit from a simple
+layer implementation. Allowing users to craft, add, remove and even
+save layers is very important for exploring data.
+"""
 import bokeh.plotting
 import numpy as np
 
 
 class Application(object):
+    """Object to encapsulate various menus, data structures and views"""
     def __init__(self):
         self.figure = bokeh.plotting.figure()
         self.layers = []
@@ -65,6 +74,7 @@ class Application(object):
 
 
 class Editor(object):
+    """Responsible for editing layer settings"""
     def __init__(self, line_color="black"):
         self.active = False
         self.layer = None
@@ -97,6 +107,7 @@ class Editor(object):
 
 
 class Layer(object):
+    """Thin wrapper to reference objects related to a layer"""
     def __init__(self, source):
         self.renderers = []
         self.source = source
@@ -109,6 +120,7 @@ class Layer(object):
 
 
 def autolabel(dropdown):
+    """Helper to update dropdown label when choice is made"""
     def on_change(attr, old, new):
         for key, value in dropdown.menu:
             if value == new:
