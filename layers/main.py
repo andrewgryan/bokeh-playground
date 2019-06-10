@@ -1,7 +1,14 @@
 """
 Any geospatial application can benefit from a simple
 layer implementation. Allowing users to craft, add, remove and even
-save layers is very important for exploring data.
+save layers is vital to enable data exploration.
+
+The decomposition of responsibilities between the :class:`Editor`,
+:class:`Setting` and :class:`Layer` should be straight forward. The editor is
+a controller/view on a settings object, that manipulates the settings object state. The
+settings object(s) are observables that the Layer(s) respond to by mirroring
+themselves.
+
 """
 import bokeh.plotting
 import numpy as np
@@ -67,6 +74,11 @@ class Application(object):
                 continue
             self.editor.layer = self.layers[i]
             return
+
+
+class Setting(object):
+    """Observable controlled by an Editor used to sync Layer(s)"""
+    pass
 
 
 class Editor(object):
