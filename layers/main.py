@@ -6,12 +6,33 @@ save layers is vital to enable data exploration.
 The decomposition of responsibilities between the :class:`Editor`,
 :class:`Setting` and :class:`Layer` should be straight forward. The editor is
 a controller/view on a settings object, that manipulates the settings object state. The
-settings object(s) are observables that the Layer(s) respond to by mirroring
-themselves.
+settings object(s) are :class:`Observable`(s) that the Layer(s) respond to
+by mirroring themselves.
 
 """
 import bokeh.plotting
 import numpy as np
+
+
+class Observable(object):
+    """Simple implementation of observer design pattern"""
+    def __init__(self):
+        self.subscribers = []
+
+    def subscribe(self, callback):
+        """On event trigger callback
+
+        :param callback: function called when change occurs
+        """
+        self.subscribers.append(callback)
+
+    def announce(self, value):
+        """Notify subscribers of event
+
+        :param value: passed to subscribed callbacks
+        """
+        for callback in self.subscribers:
+            callback(value)
 
 
 class Application(object):
@@ -76,7 +97,7 @@ class Application(object):
             return
 
 
-class Setting(object):
+class Setting(Observable):
     """Observable controlled by an Editor used to sync Layer(s)"""
     pass
 
