@@ -6,3 +6,10 @@ Layer design pattern
     :members:
 
 
+Colorbar collections
+--------------------
+
+.. automodule:: layers.cbar
+    :members:
+
+
