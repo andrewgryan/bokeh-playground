@@ -12,6 +12,7 @@ by mirroring themselves.
 """
 import bokeh.plotting
 import numpy as np
+from cbar import ColorbarLayout
 
 
 class Observable(object):
@@ -38,12 +39,26 @@ class Observable(object):
 class Application(object):
     """Object to encapsulate various menus, data structures and views"""
     def __init__(self):
-        self.figure = bokeh.plotting.figure()
+        self.figure = bokeh.plotting.figure(
+            toolbar_location=None,
+            min_border=0,
+            x_range=(1e7, 1.5e7),
+            y_range=(-2.5e6, 2.5e6),
+            x_axis_type="mercator",
+            y_axis_type="mercator",
+            active_scroll="wheel_zoom",
+            sizing_mode="stretch_both")
+        self.figure.axis.visible = False
+        tile = bokeh.models.WMTSTileSource(
+            url="https://maps.wikimedia.org/osm-intl/{Z}/{X}/{Y}.png",
+            attribution=""
+        )
+        self.figure.add_tile(tile)
         self.layers = []
         self.settings = []
         self.collection = Collection()
         self.buttons = {
-            "add": bokeh.models.Button(label="Add layer"),
+            "add": bokeh.models.Button(label="Add layer", name="btn"),
         }
         self.buttons["add"].on_click(self.add_layer)
         self.dropdowns = {
@@ -51,17 +66,51 @@ class Application(object):
         }
         autolabel(self.dropdowns["layer"])
         self.dropdowns["layer"].on_change("value", self.on_layer)
+        self.colorbar_layout = ColorbarLayout()
+        self.buttons["colorbar_layout"] = bokeh.models.Button()
+        self.buttons["colorbar_layout"].on_click(self.colorbar_layout.render)
+
+        self.buttons["colorbar_toggle"] = bokeh.models.Button(label="Toggle")
+        custom_js = bokeh.models.CustomJS(code="""
+            let el = document.getElementById('cbar');
+            if (el.style.display === "none") {
+                el.style.display = "block";
+            } else {
+                el.style.display = "none";
+            }
+        """)
+        self.buttons["colorbar_toggle"].js_on_click(custom_js)
         self.editor = Editor()
-        self.root = bokeh.layouts.column(
-            self.figure,
-            self.editor.dropdowns["color"],
-            bokeh.layouts.row(
-                self.buttons["add"],
-                self.editor.buttons["edit"],
-                self.dropdowns["layer"],
+
+        tabs = bokeh.models.Tabs(tabs=[
+            bokeh.models.Panel(
+                child=bokeh.layouts.column(
+                    self.editor.root,
+                    self.buttons["add"],
+                    self.collection.checkbox_group,
+                ),
+                title="Navigate"
             ),
-            self.collection.checkbox_group
+            bokeh.models.Panel(
+                child=bokeh.layouts.column(
+                    self.dropdowns["layer"],
+                    self.buttons["colorbar_layout"],
+                    self.buttons["colorbar_toggle"],
+                ),
+                title="Edit layers"
+            )
+        ])
+
+        controls = bokeh.layouts.column(
+            bokeh.layouts.row(tabs),
+            name="control"
         )
+
+        self.roots = [
+            bokeh.layouts.column(self.figure, sizing_mode="stretch_both"),
+            controls,
+            self.colorbar_layout.root
+        ]
         self._i = 0
 
     def add_layer(self):
@@ -118,9 +167,13 @@ class Collection(object):
 
 class Setting(Observable):
     """Observable controlled by an Editor used to sync Layer(s)"""
+    def __init__(self, line_color=None):
+        self._line_color = line_color
+        super().__init__()
+
     @property
     def line_color(self):
-        return getattr(self, "_line_color")
+        return getattr(self, "_line_color", None)
 
     @line_color.setter
     def line_color(self, value):
@@ -132,14 +185,22 @@ class Editor(object):
     """Responsible for editing layer settings"""
     def __init__(self, line_color="black"):
         self.active = False
-        self.setting = None
+        self._setting = None
         self.line_color = line_color
         self.buttons = {
             "edit": bokeh.models.CheckboxButtonGroup(labels=["Edit layer"])
         }
         self.buttons["edit"].on_change("active", self.on_active)
         self.dropdowns = {
-            "color": bokeh.models.Dropdown(label="Color", menu=[
+            "model": bokeh.models.Dropdown(label="Model", menu=[
+                ("Operational GA6", "Operational GA6"),
+                ("Operational Tropical Africa", "Operational Tropical Africa"),
+            ]),
+            "variable": bokeh.models.Dropdown(label="Variable", menu=[
+                ("air_temperature", "air_temperature"),
+                ("cloud_fraction", "cloud_fraction"),
+            ]),
+            "line_color": bokeh.models.Dropdown(label="Color", menu=[
                 ("red", "red"),
                 ("orange", "orange"),
                 ("yellow", "yellow"),
@@ -148,10 +209,30 @@ class Editor(object):
                 ("black", "black"),
             ])
         }
-        self.dropdowns["color"].on_change(
+        self.dropdowns["line_color"].on_change(
             "value", self.on_change("line_color"))
         for dropdown in self.dropdowns.values():
             autolabel(dropdown)
+        self.root = bokeh.layouts.column(
+            self.dropdowns["model"],
+            self.dropdowns["variable"],
+            self.dropdowns["line_color"],
+            self.buttons["edit"]
+        )
+
+    @property
+    def setting(self):
+        return self._setting
+
+    @setting.setter
+    def setting(self, value):
+        self._setting = value
+        self.render(value)
+
+    def render(self, setting):
+        dropdown = self.dropdowns["line_color"]
+        if dropdown.value != setting.line_color:
+            dropdown.value = setting.line_color
 
     def on_active(self, attr, old, new):
         self.active = 0 in new
@@ -193,7 +274,8 @@ def autolabel(dropdown):
 def main():
     app = Application()
     document = bokeh.plotting.curdoc()
-    document.add_root(app.root)
+    for root in app.roots:
+        document.add_root(root)
 
 
 if __name__.startswith("bk"):
