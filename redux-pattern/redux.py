@@ -1,13 +1,5 @@
 
 
-def apply_middleware(store, dispatch, middlewares):
-    def wrapper(action):
-        for middleware in reversed(middlewares):
-            pass
-        return dispatch(action)
-    return wrapper
-
-
 class Observable(object):
     def __init__(self):
         self.subscribers = []
