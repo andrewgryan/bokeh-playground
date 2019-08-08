@@ -55,7 +55,7 @@ class View(object):
         self.key = self.glyph_key(new)
         if self.key not in self.glyphs:
             source = self.layer.get_source(new)
-            self.glyphs[self.key] = self.glyph(self.key, source)
+            self.glyphs[self.key] = self.glyph_factory(self.key, source)
 
         if self.visible:
             # Mute unselected glyphs
@@ -66,7 +66,7 @@ class View(object):
             for glyph in self.glyphs.values():
                 glyph.visible = False
 
-    def glyph(self, key, source):
+    def glyph_factory(self, key, source):
         if key == "circle":
             return self.figure.circle(x="x", y="y", source=source,
                     fill_color=self.color,
@@ -91,7 +91,7 @@ class View(object):
 
 
 class LayerLoader(object):
-    """Loads layer data from disk"""
+    """I/O layer data from disk"""
     def __init__(self):
         self.cache = {}
 
