@@ -3,22 +3,25 @@ import numpy as np
 
 
 class Controls(object):
-    def __init__(self, figures, menu, colors):
+    def __init__(self, figures, menu):
+        self.figures = figures
+        self.menu = menu
+        self.loader = LayerLoader()
         self.dropdowns = []
         self.groups = []
-        loader = LayerLoader()
-        for color in colors:
-            model = Layer()
-            dropdown = bokeh.models.Dropdown(menu=menu)
-            dropdown.on_change("value", pipe(model, loader))
-            views = []
-            for figure in figures:
-                view = View(model, figure, color=color)
-                dropdown.on_change("value", view.on_change)
-                views.append(view)
-            left_right = LeftRight(views)
-            self.dropdowns.append(dropdown)
-            self.groups.append(left_right.group)
+
+    def add_control(self, color):
+        model = Layer()
+        dropdown = bokeh.models.Dropdown(menu=self.menu)
+        dropdown.on_change("value", pipe(model, self.loader))
+        views = []
+        for figure in self.figures:
+            view = View(model, figure, color=color)
+            dropdown.on_change("value", view.on_change)
+            views.append(view)
+        left_right = LeftRight(views)
+        self.dropdowns.append(dropdown)
+        self.groups.append(left_right.group)
 
 
 def pipe(layer, loader):

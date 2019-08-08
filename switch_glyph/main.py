@@ -18,7 +18,10 @@ def main():
         bokeh.plotting.figure()
     ]
     menu = [(k, k) for k in file_names]
-    controls = layer.Controls(figures, menu, ["orange", "pink", "blue", "teal"])
+    colors = ["orange", "pink", "blue", "teal"]
+    controls = layer.Controls(figures, menu)
+    for color in colors:
+        controls.add_control(color)
     column = bokeh.layouts.column(
             bokeh.layouts.row(*controls.dropdowns),
             bokeh.layouts.row(*controls.groups),
