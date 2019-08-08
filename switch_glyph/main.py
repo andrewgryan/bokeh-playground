@@ -17,28 +17,33 @@ def main():
         bokeh.plotting.figure(),
         bokeh.plotting.figure()
     ]
-    groups = []
-    dropdowns = []
-    loader = layer.LayerLoader()
-    for color in ["orange", "yellow", "blue"]:
-        model = layer.Layer()
-        dropdown = bokeh.models.Dropdown(menu=[(k, k) for k in file_names])
-        dropdown.on_change("value", pipe(model, loader))
-        views = []
-        for figure in figures:
-            view = layer.View(model, figure, color=color)
-            dropdown.on_change("value", view.on_change)
-            views.append(view)
-        dropdowns.append(dropdown)
-        left_right = layer.LeftRight(views)
-        groups.append(left_right.group)
-
+    menu = [(k, k) for k in file_names]
+    controls = Controls(figures, menu, ["orange", "pink", "blue", "teal"])
     column = bokeh.layouts.column(
-            bokeh.layouts.row(*dropdowns),
-            bokeh.layouts.row(*groups),
+            bokeh.layouts.row(*controls.dropdowns),
+            bokeh.layouts.row(*controls.groups),
             bokeh.layouts.row(*figures))
     document = bokeh.plotting.curdoc()
     document.add_root(column)
+
+
+class Controls(object):
+    def __init__(self, figures, menu, colors):
+        self.dropdowns = []
+        self.groups = []
+        loader = layer.LayerLoader()
+        for color in colors:
+            model = layer.Layer()
+            dropdown = bokeh.models.Dropdown(menu=menu)
+            dropdown.on_change("value", pipe(model, loader))
+            views = []
+            for figure in figures:
+                view = layer.View(model, figure, color=color)
+                dropdown.on_change("value", view.on_change)
+                views.append(view)
+            left_right = layer.LeftRight(views)
+            self.dropdowns.append(dropdown)
+            self.groups.append(left_right.group)
 
 
 def pipe(layer, loader):
