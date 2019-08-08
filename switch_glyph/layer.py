@@ -2,6 +2,33 @@ import bokeh.models
 import numpy as np
 
 
+class Controls(object):
+    def __init__(self, figures, menu, colors):
+        self.dropdowns = []
+        self.groups = []
+        loader = LayerLoader()
+        for color in colors:
+            model = Layer()
+            dropdown = bokeh.models.Dropdown(menu=menu)
+            dropdown.on_change("value", pipe(model, loader))
+            views = []
+            for figure in figures:
+                view = View(model, figure, color=color)
+                dropdown.on_change("value", view.on_change)
+                views.append(view)
+            left_right = LeftRight(views)
+            self.dropdowns.append(dropdown)
+            self.groups.append(left_right.group)
+
+
+def pipe(layer, loader):
+    """Connect sources to file system"""
+    def callback(attr, old, file_name):
+        source = layer.get_source(file_name)
+        source.data = loader.load(file_name)
+    return callback
+
+
 class LeftRight(object):
     """Control left/right visibility"""
     def __init__(self, views):
