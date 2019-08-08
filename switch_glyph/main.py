@@ -4,7 +4,8 @@ import bokeh.layouts
 import numpy as np
 
 
-class Model(object):
+class Layer(object):
+    """Maintains data sources related to a single layer"""
     def __init__(self):
         self.sources = {}
 
@@ -28,8 +29,8 @@ class Model(object):
 
 
 class View(object):
-    def __init__(self, model, figure, color):
-        self.model = model
+    def __init__(self, layer, figure, color):
+        self.layer = layer
         self.figure = figure
         self.color = color
         self.glyphs = {}
@@ -38,7 +39,7 @@ class View(object):
         # Select/construct glyph_renderer on demand
         glyph_key = self.glyph_key(new)
         if glyph_key not in self.glyphs:
-            source = self.model.get_source(new)
+            source = self.layer.get_source(new)
             self.glyphs[glyph_key] = self.glyph(glyph_key, source)
 
         # Mute unselected glyphs
@@ -63,7 +64,8 @@ class View(object):
             return "square"
 
 
-class Loader(object):
+class LayerLoader(object):
+    """Loads layer data from disk"""
     def __init__(self):
         self.cache = {}
 
@@ -91,20 +93,20 @@ def main():
         bokeh.plotting.figure()
     ]
     dropdowns = []
-    loader = Loader()
+    loader = LayerLoader()
     for color in ["orange", "yellow", "blue"]:
-        model = Model()
+        layer = Layer()
         dropdown = bokeh.models.Dropdown(menu=[(k, k) for k in file_names])
 
-        def load_data(model, loader):
+        def on_change(layer, loader):
             def callback(attr, old, new):
-                source = model.get_source(new)
+                source = layer.get_source(new)
                 source.data = loader.load(new)
             return callback
 
-        dropdown.on_change("value", load_data(model, loader))
+        dropdown.on_change("value", on_change(layer, loader))
         for figure in figures:
-            view = View(model, figure, color=color)
+            view = View(layer, figure, color=color)
             dropdown.on_change("value", view.on_change)
         dropdowns.append(dropdown)
 
