@@ -2,30 +2,7 @@ import bokeh.plotting
 import bokeh.models
 import bokeh.layouts
 import numpy as np
-
-
-class Layer(object):
-    """Maintains data sources related to a single layer"""
-    def __init__(self):
-        self.sources = {}
-
-    def get_source(self, file_name):
-        return self.select(self.key(file_name))
-
-    @staticmethod
-    def key(file_name):
-        if file_name.endswith(".json"):
-            return "geojson"
-        else:
-            return "column_data_source"
-
-    def select(self, key):
-        if key not in self.sources:
-            self.sources[key] =  bokeh.models.ColumnDataSource({
-                "x": [],
-                "y": [],
-            })
-        return self.sources[key]
+import layer
 
 
 class View(object):
@@ -122,12 +99,12 @@ def main():
     dropdowns = []
     loader = LayerLoader()
     for color in ["orange", "yellow", "blue"]:
-        layer = Layer()
+        model = layer.Layer()
         dropdown = bokeh.models.Dropdown(menu=[(k, k) for k in file_names])
-        dropdown.on_change("value", pipe(layer, loader))
+        dropdown.on_change("value", pipe(model, loader))
         views = []
         for figure in figures:
-            view = View(layer, figure, color=color)
+            view = View(model, figure, color=color)
             dropdown.on_change("value", view.on_change)
             views.append(view)
         dropdowns.append(dropdown)
