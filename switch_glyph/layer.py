@@ -1,4 +1,33 @@
 import bokeh.models
+import numpy as np
+
+
+class LeftRight(object):
+    """Control left/right visibility"""
+    def __init__(self, views):
+        self.views = views
+        self.group = bokeh.models.CheckboxButtonGroup(
+                labels=["L", "R"])
+        self.group.on_change("active", self.on_change)
+
+    def on_change(self, attr, old, new):
+        for i, view in enumerate(self.views):
+            view.visible = i in new
+
+
+class LayerLoader(object):
+    """I/O layer data from disk"""
+    def __init__(self):
+        self.cache = {}
+
+    def load(self, file_name):
+        if file_name not in self.cache:
+            # Random data per file
+            self.cache[file_name] = {
+                "x": np.random.randn(10),
+                "y": np.random.randn(10)
+            }
+        return self.cache[file_name]
 
 
 class View(object):

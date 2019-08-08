@@ -1,23 +1,7 @@
 import bokeh.plotting
 import bokeh.models
 import bokeh.layouts
-import numpy as np
 import layer
-
-
-class LayerLoader(object):
-    """I/O layer data from disk"""
-    def __init__(self):
-        self.cache = {}
-
-    def load(self, file_name):
-        if file_name not in self.cache:
-            # Random data per file
-            self.cache[file_name] = {
-                "x": np.random.randn(10),
-                "y": np.random.randn(10)
-            }
-        return self.cache[file_name]
 
 
 def main():
@@ -35,7 +19,7 @@ def main():
     ]
     groups = []
     dropdowns = []
-    loader = LayerLoader()
+    loader = layer.LayerLoader()
     for color in ["orange", "yellow", "blue"]:
         model = layer.Layer()
         dropdown = bokeh.models.Dropdown(menu=[(k, k) for k in file_names])
@@ -46,16 +30,8 @@ def main():
             dropdown.on_change("value", view.on_change)
             views.append(view)
         dropdowns.append(dropdown)
-
-        # Control L/R visibility
-        def on_change(views):
-            def on_change(attr, old, new):
-                for i, view in enumerate(views):
-                    view.visible = i in new
-            return on_change
-        group = bokeh.models.CheckboxButtonGroup(labels=["L", "R"])
-        group.on_change("active", on_change(views))
-        groups.append(group)
+        left_right = layer.LeftRight(views)
+        groups.append(left_right.group)
 
     column = bokeh.layouts.column(
             bokeh.layouts.row(*dropdowns),
