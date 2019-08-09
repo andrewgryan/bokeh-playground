@@ -8,16 +8,16 @@ import numpy as np
 
 class Controls(object):
     def __init__(self, figures, menu):
+        self.loader_factory = LoaderFactory()
         self.figures = figures
         self.menu = menu
-        self.loader = LayerLoader()
         self.dropdowns = []
         self.groups = []
 
     def add_control(self, color):
         source_factory = SourceFactory()
         dropdown = bokeh.models.Dropdown(menu=self.menu)
-        dropdown.on_change("value", pipe(source_factory, self.loader))
+        dropdown.on_change("value", pipe(source_factory, self.loader_factory))
         views = []
         for figure in self.figures:
             glyph_factory = GlyphFactory(source_factory, figure, color)
@@ -29,11 +29,11 @@ class Controls(object):
         self.groups.append(left_right.group)
 
 
-def pipe(layer, loader):
+def pipe(source_factory, loader_factory):
     """Connect sources to file system"""
     def callback(attr, old, file_name):
-        source = layer.get_source(file_name)
-        source.data = loader.load(file_name)
+        source = source_factory.get_source(file_name)
+        source.data = loader_factory.load(file_name)
     return callback
 
 
@@ -50,7 +50,7 @@ class LeftRight(object):
             view.visible = i in new
 
 
-class LayerLoader(object):
+class LoaderFactory(object):
     """I/O layer data from disk"""
     def __init__(self):
         self.cache = {}
@@ -70,7 +70,7 @@ class VisibleGlyphs(object):
     def __init__(self, glyph_factory):
         self.glyph_factory = glyph_factory
         self.glyphs = {}
-        self.key = None
+        self.key = None  # Needed to set visibility state
         self._visible = True
 
     @property
@@ -87,6 +87,7 @@ class VisibleGlyphs(object):
 
     def on_change(self, attr, old, new):
         # Select/construct glyph_renderer on demand
+        self.key = self.glyph_factory.glyph_key(new)
         if self.key not in self.glyphs:
             self.glyphs[self.key] = self.glyph_factory(new, visible=self.visible)
 
@@ -101,6 +102,7 @@ class VisibleGlyphs(object):
 
 
 class GlyphFactory(object):
+    """Delegates construction of GlyphRenderers to other objects"""
     def __init__(self, source_factory, figure, color):
         self.source_factory = source_factory
         self.figure = figure
@@ -109,9 +111,6 @@ class GlyphFactory(object):
     def __call__(self, file_name, visible=True):
         source = self.source_factory.get_source(file_name)
         key = self.glyph_key(file_name)
-        return self.glyph_factory(key, source, visible=visible)
-
-    def glyph_factory(self, key, source, visible=True):
         if key == "circle":
             return self.figure.circle(x="x", y="y", source=source,
                     fill_color=self.color,
@@ -136,7 +135,12 @@ class GlyphFactory(object):
 
 
 class SourceFactory(object):
-    """Maintains data sources related to a single layer"""
+    """Maintains sources related to a single layer
+
+    Allows sources to be swapped out as and when the data underlying
+    the layer changes, e.g. ColumnDataSource to GeoJSONSource,
+    or more subtle changes in source.data dict structures
+    """
     def __init__(self):
         self.sources = {}
 
