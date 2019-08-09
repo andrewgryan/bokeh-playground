@@ -3,7 +3,30 @@ Layer architecture
 
 """
 import bokeh.models
+import bokeh.layouts
 import numpy as np
+
+
+class UI(object):
+    """User interface to layers"""
+    def __init__(self):
+        self.buttons = {
+            "add": bokeh.models.Button(label="Add"),
+            "remove": bokeh.models.Button(label="Remove"),
+        }
+        self.buttons["add"].on_click(self.on_add)
+        self.buttons["remove"].on_click(self.on_remove)
+        self.layout = bokeh.layouts.column(
+                bokeh.layouts.row(
+                    self.buttons["remove"],
+                    self.buttons["add"]))
+
+    def on_add(self):
+        button = bokeh.models.Button()
+        self.layout.children.append(button)
+
+    def on_remove(self):
+        self.layout.children.pop(-1)
 
 
 class Controls(object):

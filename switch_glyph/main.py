@@ -27,28 +27,15 @@ def main():
         left_right = layer.LeftRight(views)
         groups.append(left_right.group)
 
+    ui = layer.UI()
+
     column = bokeh.layouts.column(
+            ui.layout,
             bokeh.layouts.row(*dropdowns),
             bokeh.layouts.row(*groups),
             bokeh.layouts.row(*figures))
     document = bokeh.plotting.curdoc()
     document.add_root(column)
-
-
-class Expandable(object):
-    def __init__(self):
-        self.add_button = bokeh.models.Button(label="Add")
-        self.add_button.on_click(self.on_click_add)
-        self.remove_button = bokeh.models.Button(label="Remove")
-        self.remove_button.on_click(self.on_click_remove)
-        self.row = bokeh.layouts.row(self.add_button, self.remove_button)
-
-    def on_click_add(self):
-        self.row.children.append(bokeh.models.Button())
-
-    def on_click_remove(self):
-        if len(self.row.children) > 2:
-            self.row.children.pop(-1)
 
 
 if __name__.startswith("bk"):
