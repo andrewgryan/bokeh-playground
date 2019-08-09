@@ -1,3 +1,7 @@
+"""
+Layer architecture
+
+"""
 import bokeh.models
 import numpy as np
 
@@ -11,12 +15,13 @@ class Controls(object):
         self.groups = []
 
     def add_control(self, color):
-        model = Layer()
+        source_factory = SourceFactory()
         dropdown = bokeh.models.Dropdown(menu=self.menu)
-        dropdown.on_change("value", pipe(model, self.loader))
+        dropdown.on_change("value", pipe(source_factory, self.loader))
         views = []
         for figure in self.figures:
-            view = View(model, figure, color=color)
+            glyph_factory = GlyphFactory(source_factory, figure, color)
+            view = VisibleGlyphs(glyph_factory)
             dropdown.on_change("value", view.on_change)
             views.append(view)
         left_right = LeftRight(views)
@@ -60,12 +65,10 @@ class LayerLoader(object):
         return self.cache[file_name]
 
 
-class View(object):
-    """Manages glyphs related to a single layer on a figure"""
-    def __init__(self, layer, figure, color):
-        self.layer = layer
-        self.figure = figure
-        self.color = color
+class VisibleGlyphs(object):
+    """Manages glyphs related to a single layer on a single figure"""
+    def __init__(self, glyph_factory):
+        self.glyph_factory = glyph_factory
         self.glyphs = {}
         self.key = None
         self._visible = True
@@ -84,10 +87,8 @@ class View(object):
 
     def on_change(self, attr, old, new):
         # Select/construct glyph_renderer on demand
-        self.key = self.glyph_key(new)
         if self.key not in self.glyphs:
-            source = self.layer.get_source(new)
-            self.glyphs[self.key] = self.glyph_factory(self.key, source)
+            self.glyphs[self.key] = self.glyph_factory(new, visible=self.visible)
 
         if self.visible:
             # Mute unselected glyphs
@@ -98,19 +99,31 @@ class View(object):
             for glyph in self.glyphs.values():
                 glyph.visible = False
 
-    def glyph_factory(self, key, source):
+
+class GlyphFactory(object):
+    def __init__(self, source_factory, figure, color):
+        self.source_factory = source_factory
+        self.figure = figure
+        self.color = color
+
+    def __call__(self, file_name, visible=True):
+        source = self.source_factory.get_source(file_name)
+        key = self.glyph_key(file_name)
+        return self.glyph_factory(key, source, visible=visible)
+
+    def glyph_factory(self, key, source, visible=True):
         if key == "circle":
             return self.figure.circle(x="x", y="y", source=source,
                     fill_color=self.color,
-                    visible=self.visible)
+                    visible=visible)
         elif key == "line":
             return self.figure.line(x="x", y="y", source=source,
                     line_color=self.color,
-                    visible=self.visible)
+                    visible=visible)
         elif key == "square":
             return self.figure.square(x="x", y="y", source=source,
                     fill_color=self.color,
-                    visible=self.visible)
+                    visible=visible)
 
     @staticmethod
     def glyph_key(file_name):
@@ -122,7 +135,7 @@ class View(object):
             return "square"
 
 
-class Layer(object):
+class SourceFactory(object):
     """Maintains data sources related to a single layer"""
     def __init__(self):
         self.sources = {}
