@@ -11,30 +11,27 @@ class Controls(object):
         self.loader_factory = LoaderFactory()
         self.figures = figures
         self.menu = menu
-        self.dropdowns = []
-        self.groups = []
 
     def add_control(self, color):
         source_factory = SourceFactory()
-        dropdown = bokeh.models.Dropdown(menu=self.menu)
-        dropdown.on_change("value", pipe(source_factory, self.loader_factory))
         views = []
         for figure in self.figures:
             glyph_factory = GlyphFactory(source_factory, figure, color)
             view = VisibleGlyphs(glyph_factory)
-            dropdown.on_change("value", view.on_change)
             views.append(view)
-        left_right = LeftRight(views)
-        self.dropdowns.append(dropdown)
-        self.groups.append(left_right.group)
 
+        dropdown = bokeh.models.Dropdown(menu=self.menu)
+        dropdown.on_change("value", self.on_change(source_factory))
+        for view in views:
+            dropdown.on_change("value", view.on_change)
+        return dropdown, views
 
-def pipe(source_factory, loader_factory):
-    """Connect sources to file system"""
-    def callback(attr, old, file_name):
-        source = source_factory.get_source(file_name)
-        source.data = loader_factory.load(file_name)
-    return callback
+    def on_change(self, source_factory):
+        """Connect sources to file system"""
+        def callback(attr, old, file_name):
+            source = source_factory.get_source(file_name)
+            source.data = self.loader_factory.load(file_name)
+        return callback
 
 
 class LeftRight(object):
