@@ -7,6 +7,26 @@ import bokeh.layouts
 import numpy as np
 
 
+UI_ADD = "UI_ADD"
+UI_REMOVE = "UI_REMOVE"
+
+
+def ui_add(dropdown, group):
+    return {
+        "kind": UI_ADD,
+        "payload": {
+            "dropdown": dropdown,
+            "group": group
+        }
+    }
+
+
+def ui_remove():
+    return {
+        "kind": UI_REMOVE
+    }
+
+
 class UI(object):
     """User interface to layers"""
     def __init__(self):
@@ -22,11 +42,15 @@ class UI(object):
                     self.buttons["add"]))
 
     def on_add(self):
-        button = bokeh.models.Button()
-        self.layout.children.append(button)
+        dropdown = bokeh.models.Dropdown()
+        group = bokeh.models.CheckboxButtonGroup()
+        row = bokeh.layouts.row(dropdown, group)
+        self.layout.children.insert(-1, row)
+        # self.notify(ui_add(dropdown, group))
 
     def on_remove(self):
-        self.layout.children.pop(-1)
+        self.layout.children.pop(-2)
+        # self.notify(ui_remove())
 
 
 class Controls(object):

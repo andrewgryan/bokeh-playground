@@ -12,9 +12,7 @@ class TestUI(unittest.TestCase):
                 self.ui.layout, bokeh.layouts.Column)
 
     def test_layout_has_one_row(self):
-        result = self.ui.layout.children[0]
-        expect = bokeh.layouts.Row
-        self.assertIsInstance(result, expect)
+        self.assert_is_row(self.ui.layout.children[0])
 
     def test_layout_has_add_button(self):
         row = self.ui.layout.children[-1]
@@ -32,13 +30,22 @@ class TestUI(unittest.TestCase):
                 labels.append(child.label)
         self.assertIn("Remove", labels)
 
-    def test_on_add_adds_a_button_to_the_layout(self):
+    def test_on_add_inserts_row_before_add_remove_row(self):
         ui = layer.UI()
+        add_remove_id = ui.layout.children[0].id
         ui.on_add()
         self.assertEqual(len(ui.layout.children), 2)
+        self.assertEqual(ui.layout.children[-1].id, add_remove_id)
+
+    def test_on_add_inserts_row(self):
+        self.ui.on_add()
+        self.assert_is_row(self.ui.layout.children[0])
 
     def test_on_remove_reduces_buttons_by_one(self):
-        ui = layer.UI()
-        ui.on_add()
-        ui.on_remove()
-        self.assertEqual(len(ui.layout.children), 1)
+        expect = self.ui.layout.children[0].id
+        self.ui.on_add()
+        self.ui.on_remove()
+        self.assertEqual(self.ui.layout.children[-1].id, expect)
+
+    def assert_is_row(self, child):
+        self.assertIsInstance(child, bokeh.layouts.Row)
