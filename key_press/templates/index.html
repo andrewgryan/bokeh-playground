@@ -1,0 +1,30 @@
+{% extends base %}
+{% block postamble %}
+<style>
+    .keypress-hidden-btn {
+        display: none !important;
+    }
+</style>
+{% endblock %}
+{% block contents %}
+    {{ super() }}
+    <script>
+let clickButton = function() {
+    let els = document.getElementsByClassName('keypress-hidden-btn');
+    let btns = els[0].getElementsByTagName('button');
+    btns[0].click();
+}
+
+// Hack to check that bokeh rendered items
+oldLog = console.log;
+console.log = function(message) {
+    if (message.localeCompare('Bokeh items were rendered successfully') == 0) {
+        console.log = oldLog
+        console.log(message)
+        clickButton()
+    }
+    oldLog.apply(console, arguments)
+}
+    </script>
+{% endblock %}
+
