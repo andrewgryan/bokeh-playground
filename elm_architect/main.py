@@ -68,7 +68,7 @@ class Text(object):
 
 
 def main():
-    store = Store(history(reducer))
+    store = Store(reducer)
     undo_button = bokeh.models.Button(label="Undo")
     undo_button.on_click(lambda: store.dispatch(actions.undo()))
     redo_button = bokeh.models.Button(label="Redo")
@@ -92,7 +92,10 @@ def main():
 
 
 def history(reducer):
-    """
+    """Reducer decorator to make time-travel possible
+
+    .. note:: App must be able to re-render initial state
+
              past, present, future = [], s0, []
     <action> past, present, future = [s0], s1, []
     <action> past, present, future = [s0, s1], s2, []
@@ -125,6 +128,7 @@ def history(reducer):
     return wrapped
 
 
+@history
 def reducer(state, action):
     kind = action["kind"]
     state = dict(state)
