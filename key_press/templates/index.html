@@ -20,7 +20,6 @@ oldLog = console.log;
 console.log = function(message) {
     if (message.localeCompare('Bokeh items were rendered successfully') == 0) {
         console.log = oldLog
-        console.log(message)
         clickButton()
     }
     oldLog.apply(console, arguments)

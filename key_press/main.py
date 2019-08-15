@@ -5,8 +5,6 @@ source = bokeh.models.ColumnDataSource({
 custom_js = bokeh.models.CustomJS(args=dict(source=source), code="""
     if (typeof keyPressOn === 'undefined') {
         document.onkeydown = function(e) {
-          console.log(e.code);
-          console.log(source.data);
           source.data = {
             'keys': [e.code]
           }
@@ -16,7 +14,8 @@ custom_js = bokeh.models.CustomJS(args=dict(source=source), code="""
     }
 """)
 def callback(attr, old, new):
-    print(source.data['keys'])
+    key = source.data['keys'][0]
+    print(key)
 source.on_change('data', callback)
 button = bokeh.models.Button(css_classes=['keypress-hidden-btn'])
 button.js_on_click(custom_js)
