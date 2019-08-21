@@ -1,0 +1,30 @@
+{% from macros import embed %}
+{% extends base %}
+{% block postamble %}
+<style>
+    body {
+        margin: 0;
+    }
+    .map {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: black;
+    }
+</style>
+{% endblock %}
+{% block contents %}
+    {% for doc in docs %}
+        {% for root in doc.roots %}
+            {% if root.name == "map" %}
+                <div class="map">
+                {{ embed(root) | indent(10) }}
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+    {{ super() }}
+{% endblock %}
