@@ -1,3 +1,4 @@
+import xarray
 import geoviews as gv
 import geoviews.feature as gf
 import tornado.ioloop
@@ -10,7 +11,14 @@ renderer = gv.renderer('bokeh').instance(mode='server')
 
 
 def index(document):
-    feature = (gf.land * gf.ocean * gf.lakes * gf.rivers * gf.coastline * gf.borders).opts(
+    # Load some data
+    path = "~/cache/highway_ga6_20190315T0000Z.nc"
+    air_temperature = xarray.open_dataset(path).air_temperature
+    dataset = gv.Dataset(air_temperature[0])
+    contours = dataset.to(gv.LineContours, ['longitude_0', 'latitude_0'])
+
+    # Create map
+    feature = (gf.land * gf.ocean * gf.lakes * gf.rivers * gf.coastline * gf.borders * contours).opts(
             global_extent=True,
             xaxis=None,
             yaxis=None,
@@ -23,6 +31,9 @@ def index(document):
     figure.toolbar.logo = None
     figure.toolbar_location = None
     figure.title.text = ""
+
+    contours.data = air_temperature[-1]
+
     document.add_root(bokeh.layouts.row(figure, name="map", sizing_mode="stretch_both"))
     document.template = template.INDEX
 
