@@ -133,7 +133,7 @@ button.on_click(on_click)
 document = bokeh.plotting.curdoc()
 document.add_root(button)
 document.add_root(figure)
-duration = 1000
+duration = 100
 if mode == "barbs":
     callback = rotate_barbs
 else:
