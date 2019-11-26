@@ -72,14 +72,10 @@ class FontAwesomeButton(bokeh.models.AbstractButton):
 
 
 gear = u"\u2699"
-btn = FontAwesomeButton(width=10)
+user_btn = FontAwesomeButton(label="fa-user", width=10)
+cog_btn = FontAwesomeButton(label="fa-cog", width=10)
 
-def on_click():
-    print("Hello, settings!")
-
-btn.on_click(on_click)
-
-root = bokeh.layouts.column(btn, name="custom")
+root = bokeh.layouts.row(user_btn, bokeh.models.Div(width=20), cog_btn, name="custom")
 document.add_root(root)
 
 

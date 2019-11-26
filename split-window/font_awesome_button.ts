@@ -11,12 +11,12 @@ export class FontAwesomeButtonView extends AbstractButtonView {
   model: FontAwesomeButton
 
   _render_button(...children: (string | HTMLElement)[]): HTMLButtonElement {
-      console.log(...children)
+      let fontAwesomeClass = children[0]
       return button({
           type: "button",
           disabled: this.model.disabled,
           class: [bk_btn, bk_btn_type(this.model.button_type)]
-      }, i({class: ["fas", "fa-cog"]}))
+      }, i({class: ["fas", fontAwesomeClass]}))
   }
 
   click(): void {
@@ -48,7 +48,7 @@ export class FontAwesomeButton extends AbstractButton {
     this.prototype.default_view = FontAwesomeButtonView
 
     this.override({
-      label: "FontAwesomeButton",
+      label: "fa-cog",
     })
   }
 }
