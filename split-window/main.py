@@ -48,11 +48,10 @@ document.add_root(root)
 gear = u"\u2699"
 btn = bokeh.models.Button(width=10, label=u"")
 
-custom_js = bokeh.models.CustomJS(code="""
-    let btn = document.querySelector('.custom > .bk-root button')
-    btn.innerHTML = '<i class="fas fa-cog"></i>'
-""")
-btn.js_on_click(custom_js)
+def on_click():
+    print("Hello, settings!")
+
+btn.on_click(on_click)
 
 root = bokeh.layouts.column(btn, name="custom")
 document.add_root(root)
