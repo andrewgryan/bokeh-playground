@@ -1,0 +1,45 @@
+{% extends base %}
+
+{% block postamble %}
+<link rel="stylesheet" href="/split-window/static/css/all.css" type="text/css" media="all">
+<style type="text/css" media="all">
+    .custom {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: #EEE;
+        border-bottom: 1px solid #CCC;
+        z-index: 1;
+    }
+    .custom > .bk-root button {
+        height: 33px;
+        /* line-height: 28px;  over-ridden by font-awesome */
+        font-size: 20px;
+        color: #777;
+    }
+    .maps {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: 44px;
+    }
+    
+</style>
+{% endblock %}
+{% block contents %}
+    {% for doc in docs %}
+        {% for root in doc.roots | sort(attribute='name', reverse=True) %}
+            {% if root.name == "custom" %}
+                <div class="custom">
+                {{ embed(root) | indent(10) }}
+                </div>
+            {% else %}
+                <div class="maps">
+                {{ embed(root) | indent(10) }}
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+{% endblock %}
