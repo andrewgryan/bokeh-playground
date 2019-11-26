@@ -74,8 +74,14 @@ class FontAwesomeButton(bokeh.models.AbstractButton):
 gear = u"\u2699"
 user_btn = FontAwesomeButton(label="fa-user", width=10)
 cog_btn = FontAwesomeButton(label="fa-cog", width=10)
+layer_group_btn = FontAwesomeButton(label="fa-layer-group", width=10)
 
-root = bokeh.layouts.row(user_btn, bokeh.models.Div(width=20), cog_btn, name="custom")
+root = bokeh.layouts.row(user_btn,
+                         bokeh.models.Div(width=20),
+                         cog_btn,
+                         bokeh.models.Div(width=20),
+                         layer_group_btn,
+                         name="custom")
 document.add_root(root)
 
 
