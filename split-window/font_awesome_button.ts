@@ -11,12 +11,14 @@ export class FontAwesomeButtonView extends AbstractButtonView {
   model: FontAwesomeButton
 
   _render_button(...children: (string | HTMLElement)[]): HTMLButtonElement {
-      let fontAwesomeClass = children[0]
+      let classList = (children[0] as string).split(" ")
+      let el = i({class: classList})
+      el.classList.remove("bk")
       return button({
           type: "button",
           disabled: this.model.disabled,
           class: [bk_btn, bk_btn_type(this.model.button_type)]
-      }, i({class: ["fas", fontAwesomeClass]}))
+      }, el)
   }
 
   click(): void {
