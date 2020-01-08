@@ -5,7 +5,7 @@ import bokeh.models
 
 def main():
 
-    rows = []
+    columns = []
     color_mappers = []
     for name in bokeh.palettes.mpl:
         figures = []
@@ -14,7 +14,7 @@ def main():
             color_mapper = bokeh.models.LinearColorMapper(palette=palette, low=0, high=1)
             color_mappers.append(color_mapper)
             figures.append(make_figure(color_mapper))
-        rows.append(bokeh.layouts.row(*figures))
+        columns.append(bokeh.layouts.column(*figures))
 
     button = bokeh.models.Button()
 
@@ -23,10 +23,10 @@ def main():
             mapper.palette = mapper.palette[::-1]
     button.on_click(on_click)
 
-    column = bokeh.layouts.column(*rows)
+    row = bokeh.layouts.row(*columns)
     document = bokeh.plotting.curdoc()
     document.add_root(button)
-    document.add_root(column)
+    document.add_root(row)
 
 
 def make_figure(color_mapper):
