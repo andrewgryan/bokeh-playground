@@ -8,6 +8,7 @@ from typing import Callable, Any
 
 Action = dict
 State = dict
+Reducer = Callable[[State, Action], State]
 
 # Constants to distinguish actions
 ADD = "ADD"
@@ -52,7 +53,7 @@ class Observable:
 
 class Store(Observable):
     """Redux design pattern store"""
-    def __init__(self, reducer: Callable[[dict, dict], dict]):
+    def __init__(self, reducer: Reducer):
         self.state = {}
         self.reducer = reducer
         super().__init__()
@@ -62,14 +63,41 @@ class Store(Observable):
         self.notify(self.state)
 
 
-class Component:
-    """A component to control visible layers"""
+class Component(Observable):
+    """A component to control visible layers
+
+    .. note:: Not all components are observable
+    """
     def __init__(self):
-        self.layout = bokeh.layouts.column()
+        self.buttons = {
+            "add": bokeh.models.Button(label="Add"),
+            "remove": bokeh.models.Button(label="Remove")
+        }
+        self.columns = {
+            "rows": bokeh.layouts.column(),
+            "buttons": bokeh.layouts.column(
+                bokeh.layouts.row(
+                    self.buttons["add"],
+                    self.buttons["remove"]))
+        }
+        self.buttons["add"].on_click(self.on_add)
+        self.buttons["remove"].on_click(self.on_remove)
+        self.layout = bokeh.layouts.column(
+            self.columns["rows"],
+            self.columns["buttons"]
+        )
+        super().__init__()
+
+    def on_add(self):
+        self.notify(on_add())
+
+    def on_remove(self):
+        self.notify(on_remove())
 
     def connect(self, store) -> Component:
         """Register component with store"""
         store.subscribe(self.on_state)
+        self.subscribe(store.dispatch)
         return self
 
     def on_state(self, state: State):
@@ -83,7 +111,7 @@ class Component:
 
     def render(self, nlayers: int):
         """Update widgets in response to state changes"""
-        nrows = len(self.layout.children)
+        nrows = len(self.columns["rows"].children)
         if nrows < nlayers:
             # Add missing rows
             for _ in range(nlayers - nrows):
@@ -96,27 +124,18 @@ class Component:
     def add_row(self):
         """Construct and append row to component"""
         row = bokeh.layouts.row(bokeh.models.Div(text="Row"))
-        self.layout.children.append(row)
+        self.columns["rows"].children.append(row)
 
     def remove_row(self):
         """Pop row off component"""
-        self.layout.children.pop()
+        self.columns["rows"].children.pop()
 
 
 def main():
     """Example of using a redux design pattern"""
     store = Store(reducer)
     component = Component().connect(store)
-    
-    def on_click():
-        store.dispatch(on_add())
-
-    btn = bokeh.models.Button(label="Add")
-    btn.on_click(on_click)
-
-    root = bokeh.layouts.column(
-        component.layout,
-        btn)
+    root = component.layout
     document = bokeh.plotting.curdoc()
     document.add_root(root)
 
