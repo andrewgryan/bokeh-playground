@@ -4,13 +4,39 @@ Demonstration of combining client-side animation with streamed
 column data sources
 
 """
+import time
 import bokeh.plotting
 import numpy as np
+from functools import partial
+from tornado import gen
+from bokeh.document import without_document_lock
+
+
+class Channel:
+    def __init__(self, document, figure):
+        self.document = document
+        self.label = bokeh.models.Label(
+                x=150 - 20, y=150,
+                x_units='screen',
+                y_units='screen',
+                text="",
+                text_align="center",
+                render_mode="css")
+        figure.add_layout(self.label)
+
+    def send(self, text):
+        self.document.add_next_tick_callback(partial(self._locked, text))
+
+    @gen.coroutine
+    def _locked(self, text):
+        self.label.text = text
 
 
 class Animation:
-    def __init__(self, figure, dataset):
+    def __init__(self, document, figure, dataset):
         self._i = 0  # To be replaced by auto-stream/animate functionality
+        self.document = document
+        self.channel = Channel(document, figure)
         self.dataset = dataset
         self.sources = {}
         self.sources['mode'] = bokeh.models.ColumnDataSource({
@@ -49,16 +75,17 @@ class Animation:
             image_source=self.sources['image'],
             index_source=self.sources['index'],
             mode_source=self.sources['mode']), code="""
+                let ms = 50;
                 let next_frame = function() {
                     if (mode_source.data['playing'][0]) {
                         let index = index_source.data['i'][0];
                         index_source.data['i'] = [(index + 1) % image_source.get_length()]
                         image_source.change.emit() // Trigger CustomJSFilter
-                        setTimeout(next_frame, 100)
+                        setTimeout(next_frame, ms)
                     }
                 }
                 if (mode_source.data['playing'][0]) {
-                    setTimeout(next_frame, 100)
+                    setTimeout(next_frame, ms)
                 }
         """)
         self.sources["mode"].js_on_change("data", custom_js)
@@ -85,12 +112,19 @@ class Animation:
     def play(self):
         # Load frame(s) if needed
         if self._i < 20:
-            for i in range(10):
-                self.add_frame()
+            n = 10
+            for i in range(n):
+                self.channel.send(f"Loading {i} of {n}")
+                self.document.add_next_tick_callback(self.add_frame)
+        self.channel.send("")
+        self.document.add_next_tick_callback(self._trigger)
 
+    @gen.coroutine
+    def _trigger(self):
         # Trigger client-side animation
         self.sources['mode'].data['playing'] = [True]
 
+    @gen.coroutine
     def add_frame(self):
         print(f"Add frame: {self._i}")
         self.sources['image'].stream(self.dataset.load_image(self._i))
@@ -106,7 +140,7 @@ class Dataset:
 
     def load_image(self, index):
         """Simulates retrieving next image from server"""
-        image = self.particle((self.X - 0.1 * index), self.Y)
+        image = self.particle((self.X - 0.1 * index), (self.Y - 1))
         return {
             "x": [0],
             "y": [0],
@@ -121,10 +155,10 @@ class Dataset:
 
 
 def main():
+    document = bokeh.plotting.curdoc()
     figure = bokeh.plotting.figure()
     dataset = Dataset()
-    animation = Animation(figure, dataset)
-    document = bokeh.plotting.curdoc()
+    animation = Animation(document, figure, dataset)
     document.add_root(
         bokeh.layouts.column(
             animation.layout,
