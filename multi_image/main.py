@@ -32,17 +32,23 @@ buttons = {
     "add_image": bokeh.models.Button(label="Add frame"),
     "next_index": bokeh.models.Button(label="Next frame")
 }
+
+def _image(index):
+    return [
+        [0 + index, 1, 2],
+        [2, 3 + index, 4],
+        [4, 5, 6 + index]
+    ]
+
 i = 0
 def on_click():
     global i
     source.stream({
-        "x": [i],
+        "x": [0],
         "y": [0],
         "dw": [2],
         "dh": [2],
-        "image": [
-            [[1, 2], [3, 4]]
-        ],
+        "image": [_image(i)],
     })
     i += 2
 buttons["add_image"].on_click(on_click)
@@ -54,7 +60,7 @@ custom_js = bokeh.models.CustomJS(args=dict(
     index_source=index_source), code="""
         let index = index_source.data['i'][0];
         index_source.data = {
-            "i": [index + 1]
+            "i": [(index + 1) % image_source.get_length()]
         }
         image_source.change.emit() // Trigger CustomJSFilter
 """)
