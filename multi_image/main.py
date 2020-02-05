@@ -1,7 +1,8 @@
 import bokeh.plotting
 
 index_source = bokeh.models.ColumnDataSource({
-    "i": [0]
+    "i": [0],
+    "playing": [False]
 })
 
 custom_js_filter = bokeh.models.CustomJSFilter(args=dict(index_source=index_source), code="""
@@ -30,7 +31,8 @@ figure.image(
         view=view)
 buttons = {
     "add_image": bokeh.models.Button(label="Add frame"),
-    "next_index": bokeh.models.Button(label="Next frame")
+    "play": bokeh.models.Button(label="Play"),
+    "pause": bokeh.models.Button(label="Pause")
 }
 
 def _image(index):
@@ -58,18 +60,32 @@ buttons["add_image"].on_click(on_click)
 custom_js = bokeh.models.CustomJS(args=dict(
     image_source=source,
     index_source=index_source), code="""
-        let index = index_source.data['i'][0];
-        index_source.data = {
-            "i": [(index + 1) % image_source.get_length()]
+        index_source.data['playing'] = [true];
+        index_source.change.emit()
+        let next_frame = function() {
+            console.log(index_source);
+            if (index_source.data['playing'][0]) {
+                let index = index_source.data['i'][0];
+                index_source.data['i'] = [(index + 1) % image_source.get_length()]
+                image_source.change.emit() // Trigger CustomJSFilter
+                setTimeout(next_frame, 100)
+            }
         }
-        image_source.change.emit() // Trigger CustomJSFilter
+        setTimeout(next_frame, 100)
 """)
-buttons["next_index"].js_on_click(custom_js)
+buttons["play"].js_on_click(custom_js)
+custom_js = bokeh.models.CustomJS(args=dict(
+    index_source=index_source), code="""
+        index_source.data['playing'] = [false];
+        index_source.change.emit()
+""")
+buttons["pause"].js_on_click(custom_js)
 
 document = bokeh.plotting.curdoc()
 document.add_root(bokeh.layouts.column(
     bokeh.layouts.row(
         buttons["add_image"],
-        buttons["next_index"]
+        buttons["play"],
+        buttons["pause"]
     ),
     figure))
