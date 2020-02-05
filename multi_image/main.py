@@ -1,13 +1,21 @@
-import bokeh.plotting
+"""
 
-index_source = bokeh.models.ColumnDataSource({
+Demonstration of combining client-side animation with streamed
+column data sources
+
+"""
+import bokeh.plotting
+import numpy as np
+
+# Animation state
+animation_source = bokeh.models.ColumnDataSource({
     "i": [0],
     "playing": [False]
 })
 
-custom_js_filter = bokeh.models.CustomJSFilter(args=dict(index_source=index_source), code="""
+custom_js_filter = bokeh.models.CustomJSFilter(args=dict(animation_source=animation_source), code="""
     let indices = new Array(source.get_length()).fill(true);
-    return indices.map((x, i) => i == index_source.data['i'][0])
+    return indices.map((x, i) => i == animation_source.data['i'][0])
 """)
 
 source = bokeh.models.ColumnDataSource({
@@ -17,9 +25,7 @@ source = bokeh.models.ColumnDataSource({
     "dh": [],
     "image": [],
 })
-view = bokeh.models.CDSView(source=source, filters=[
-    custom_js_filter
-])
+view = bokeh.models.CDSView(source=source, filters=[custom_js_filter])
 figure = bokeh.plotting.figure()
 figure.image(
         x="x",
@@ -35,12 +41,17 @@ buttons = {
     "pause": bokeh.models.Button(label="Pause")
 }
 
+X, Y = np.meshgrid(
+        np.linspace(0, 2, 256),
+        np.linspace(0, 2, 256))
+
+def particle(X, Y):
+    return np.exp(-1 * (X**2 + Y**2))
+
+
 def _image(index):
-    return [
-        [0 + index, 1, 2],
-        [2, 3 + index, 4],
-        [4, 5, 6 + index]
-    ]
+    """Simulates retrieving next image from server"""
+    return particle((X - 0.1 * i), Y)
 
 i = 0
 def on_click():
@@ -52,21 +63,20 @@ def on_click():
         "dh": [2],
         "image": [_image(i)],
     })
-    i += 2
+    i += 1
 buttons["add_image"].on_click(on_click)
 
 
 # Button to "animate" frames
 custom_js = bokeh.models.CustomJS(args=dict(
     image_source=source,
-    index_source=index_source), code="""
-        index_source.data['playing'] = [true];
-        index_source.change.emit()
+    animation_source=animation_source), code="""
+        animation_source.data['playing'] = [true];
+        animation_source.change.emit()
         let next_frame = function() {
-            console.log(index_source);
-            if (index_source.data['playing'][0]) {
-                let index = index_source.data['i'][0];
-                index_source.data['i'] = [(index + 1) % image_source.get_length()]
+            if (animation_source.data['playing'][0]) {
+                let index = animation_source.data['i'][0];
+                animation_source.data['i'] = [(index + 1) % image_source.get_length()]
                 image_source.change.emit() // Trigger CustomJSFilter
                 setTimeout(next_frame, 100)
             }
@@ -75,9 +85,9 @@ custom_js = bokeh.models.CustomJS(args=dict(
 """)
 buttons["play"].js_on_click(custom_js)
 custom_js = bokeh.models.CustomJS(args=dict(
-    index_source=index_source), code="""
-        index_source.data['playing'] = [false];
-        index_source.change.emit()
+    animation_source=animation_source), code="""
+        animation_source.data['playing'] = [false];
+        animation_source.change.emit()
 """)
 buttons["pause"].js_on_click(custom_js)
 
