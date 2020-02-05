@@ -1,6 +1,13 @@
 import bokeh.plotting
 
 
+custom_js_filter = bokeh.models.CustomJSFilter(code="""
+    // Return all indices
+    console.log(source.get_length())
+    let indices = new Array(source.get_length()).fill(true);
+    return indices.map((x, i) => i % 2 == 0)
+""")
+
 source = bokeh.models.ColumnDataSource({
     "x": [],
     "y": [],
@@ -8,6 +15,9 @@ source = bokeh.models.ColumnDataSource({
     "dh": [],
     "image": [],
 })
+view = bokeh.models.CDSView(source=source, filters=[
+    custom_js_filter
+])
 figure = bokeh.plotting.figure()
 figure.image(
         x="x",
@@ -15,7 +25,8 @@ figure.image(
         dw="dw",
         dh="dh",
         image="image",
-        source=source)
+        source=source,
+        view=view)
 buttons = {
     "add_image": bokeh.models.Button()
 }
