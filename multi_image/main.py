@@ -10,71 +10,91 @@ import numpy as np
 
 class Animation:
     def __init__(self, figure, dataset):
+        self._i = 0  # To be replaced by auto-stream/animate functionality
         self.dataset = dataset
-        animation_source = bokeh.models.ColumnDataSource({
-            "i": [0],
+        self.sources = {}
+        self.sources['mode'] = bokeh.models.ColumnDataSource({
             "playing": [False]
         })
-        custom_js_filter = bokeh.models.CustomJSFilter(args=dict(animation_source=animation_source), code="""
+        self.sources['index'] = bokeh.models.ColumnDataSource({
+            "i": [0],
+        })
+        custom_js_filter = bokeh.models.CustomJSFilter(args=dict(index_source=self.sources['index']), code="""
             let indices = new Array(source.get_length()).fill(true);
-            return indices.map((x, i) => i == animation_source.data['i'][0])
+            return indices.map((x, i) => i == index_source.data['i'][0])
         """)
-        source = bokeh.models.ColumnDataSource({
+        self.sources['image'] = bokeh.models.ColumnDataSource({
             "x": [],
             "y": [],
             "dw": [],
             "dh": [],
             "image": [],
         })
-        view = bokeh.models.CDSView(source=source, filters=[custom_js_filter])
+        view = bokeh.models.CDSView(source=self.sources['image'], filters=[custom_js_filter])
         figure.image(
                 x="x",
                 y="y",
                 dw="dw",
                 dh="dh",
                 image="image",
-                source=source,
+                source=self.sources['image'],
                 view=view)
         buttons = {
-            "add_image": bokeh.models.Button(label="Add frame"),
             "play": bokeh.models.Button(label="Play"),
             "pause": bokeh.models.Button(label="Pause")
         }
 
-        i = 0
-        def on_click():
-            global i
-            source.stream(self.dataset.load_image(i))
-            i += 1
-        buttons["add_image"].on_click(on_click)
-
-        # Button to "animate" frames
+        # Animation recursive JS
         custom_js = bokeh.models.CustomJS(args=dict(
-            image_source=source,
-            animation_source=animation_source), code="""
-                animation_source.data['playing'] = [true];
-                animation_source.change.emit()
+            image_source=self.sources['image'],
+            index_source=self.sources['index'],
+            mode_source=self.sources['mode']), code="""
                 let next_frame = function() {
-                    if (animation_source.data['playing'][0]) {
-                        let index = animation_source.data['i'][0];
-                        animation_source.data['i'] = [(index + 1) % image_source.get_length()]
+                    if (mode_source.data['playing'][0]) {
+                        let index = index_source.data['i'][0];
+                        index_source.data['i'] = [(index + 1) % image_source.get_length()]
                         image_source.change.emit() // Trigger CustomJSFilter
                         setTimeout(next_frame, 100)
                     }
                 }
-                setTimeout(next_frame, 100)
+                if (mode_source.data['playing'][0]) {
+                    setTimeout(next_frame, 100)
+                }
+        """)
+        self.sources["mode"].js_on_change("data", custom_js)
+
+        # Play button
+        custom_js = bokeh.models.CustomJS(args=dict(mode_source=self.sources['mode']), code="""
+            mode_source.data['playing'] = [true];
+            mode_source.change.emit();
         """)
         buttons["play"].js_on_click(custom_js)
-        custom_js = bokeh.models.CustomJS(args=dict(
-            animation_source=animation_source), code="""
-                animation_source.data['playing'] = [false];
-                animation_source.change.emit()
+        buttons["play"].on_click(self.play)
+
+        # Pause button
+        custom_js = bokeh.models.CustomJS(args=dict(mode_source=self.sources['mode']), code="""
+            mode_source.data['playing'] = [false];
+            mode_source.change.emit();
         """)
         buttons["pause"].js_on_click(custom_js)
+
         self.layout = bokeh.layouts.row(
-                buttons["add_image"],
                 buttons["play"],
                 buttons["pause"])
+
+    def play(self):
+        # Load frame(s) if needed
+        if self._i < 20:
+            for i in range(10):
+                self.add_frame()
+
+        # Trigger client-side animation
+        self.sources['mode'].data['playing'] = [True]
+
+    def add_frame(self):
+        print(f"Add frame: {self._i}")
+        self.sources['image'].stream(self.dataset.load_image(self._i))
+        self._i += 1
 
 
 class Dataset:
