@@ -1,8 +1,9 @@
 import bokeh.plotting
 
 index_source = bokeh.models.ColumnDataSource({
-    "i": [2]
+    "i": [0]
 })
+
 custom_js_filter = bokeh.models.CustomJSFilter(args=dict(index_source=index_source), code="""
     let indices = new Array(source.get_length()).fill(true);
     return indices.map((x, i) => i == index_source.data['i'][0])
@@ -28,7 +29,8 @@ figure.image(
         source=source,
         view=view)
 buttons = {
-    "add_image": bokeh.models.Button()
+    "add_image": bokeh.models.Button(label="Add frame"),
+    "next_index": bokeh.models.Button(label="Next frame")
 }
 i = 0
 def on_click():
@@ -44,10 +46,24 @@ def on_click():
     })
     i += 2
 buttons["add_image"].on_click(on_click)
+
+
+# Button to "animate" frames
+custom_js = bokeh.models.CustomJS(args=dict(
+    image_source=source,
+    index_source=index_source), code="""
+        let index = index_source.data['i'][0];
+        index_source.data = {
+            "i": [index + 1]
+        }
+        image_source.change.emit() // Trigger CustomJSFilter
+""")
+buttons["next_index"].js_on_click(custom_js)
+
 document = bokeh.plotting.curdoc()
 document.add_root(bokeh.layouts.column(
-    figure,
     bokeh.layouts.row(
-        buttons["add_image"]
-    )
-))
+        buttons["add_image"],
+        buttons["next_index"]
+    ),
+    figure))
