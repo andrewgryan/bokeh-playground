@@ -1,11 +1,11 @@
 import bokeh.plotting
 
-
-custom_js_filter = bokeh.models.CustomJSFilter(code="""
-    // Return all indices
-    console.log(source.get_length())
+index_source = bokeh.models.ColumnDataSource({
+    "i": [2]
+})
+custom_js_filter = bokeh.models.CustomJSFilter(args=dict(index_source=index_source), code="""
     let indices = new Array(source.get_length()).fill(true);
-    return indices.map((x, i) => i % 2 == 0)
+    return indices.map((x, i) => i == index_source.data['i'][0])
 """)
 
 source = bokeh.models.ColumnDataSource({
