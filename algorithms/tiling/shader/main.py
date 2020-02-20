@@ -89,6 +89,7 @@ class NewView:
                 self.loader.lons,
                 self.loader.lats,
                 self.loader.recordings[index])):
+            print(data["image"][0].dtype)
             document.add_next_tick_callback(partial(self.callback, i, data,
                                                     method))
 
@@ -211,6 +212,7 @@ def image_data(xr, x_range, y_range):
                                y_range=y_range)
     xri = canvas.quadmesh(xr)
     image = np.ma.masked_array(xri.values, np.isnan(xri.values))
+    image = image.astype(np.float32)  # Reduce bandwith needed to send values
     return {
         "x": [x_range[0]],
         "y": [y_range[0]],
