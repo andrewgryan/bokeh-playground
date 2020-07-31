@@ -55,6 +55,7 @@ def main():
         ("/palette", PaletteNames),
         ("/palette/(.*)", Palette),
         ("/time/(.*)", DataTime),
+        (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": "./static"})
     ])
     app.listen(args.port)
     print(f"listening on localhost:{args.port}")
