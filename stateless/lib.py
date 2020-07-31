@@ -1,6 +1,8 @@
 """Example Python I/O library"""
+import xarray
 import numpy as np
 import datetime as dt
+import forest.geo
 
 
 def data_times(dataset):
@@ -26,15 +28,39 @@ def xy_data(dataset, variable):
         }
 
 
-def image_data():
+def image_data(name, path):
     n = 256
-    image = np.linspace(0, 11, n*n, dtype=np.float).reshape((n, n))
-    return {
-        "x": [0],
-        "y": [0],
-        "dw": [1e6],
-        "dh": [1e6],
-        "image": [
-            image
-        ]
-    }
+    print(path)
+    if name == "EIDA50":
+        with xarray.open_dataset(path, engine="h5netcdf") as nc:
+            lons = nc["longitude"].values
+            lats = nc["latitude"].values
+            values = nc["data"][0].values
+        data = forest.geo.stretch_image(lons,
+                                        lats,
+                                        values,
+                                        plot_width=n,
+                                        plot_height=n)
+        return data
+    elif name == "Operational Africa":
+        with xarray.open_dataset(path, engine="h5netcdf") as nc:
+            lons = nc["longitude"].values
+            lats = nc["latitude"].values
+            values = nc["relative_humidity"][0, 0].values
+        data = forest.geo.stretch_image(lons,
+                                        lats,
+                                        values,
+                                        plot_width=n,
+                                        plot_height=n)
+        return data
+    else:
+        image = np.linspace(0, 11, n*n, dtype=np.float).reshape((n, n))
+        return {
+            "x": [0],
+            "y": [0],
+            "dw": [1e6],
+            "dh": [1e6],
+            "image": [
+                image
+            ]
+        }

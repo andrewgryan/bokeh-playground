@@ -4,7 +4,11 @@ import tornado.ioloop
 import bokeh.resources
 import bokeh.palettes
 from bokeh.core.json_encoder import serialize_json
+import yaml
 import lib
+
+
+CONFIG = None
 
 
 class Index(tornado.web.RequestHandler):
@@ -21,11 +25,23 @@ class Data(tornado.web.RequestHandler):
         self.write(serialize_json(obj))
 
 
-class Image(tornado.web.RequestHandler):
+class Datasets(tornado.web.RequestHandler):
     def get(self):
         # self.set_header("Cache-control", "max-age=31536000")
-        obj = lib.image_data()
+        obj = sorted([dataset["name"] for dataset in CONFIG["datasets"]])
+        self.set_header("Content-Type", "application/json")
         self.write(serialize_json(obj))
+
+
+class Image(tornado.web.RequestHandler):
+    def get(self, name):
+        # self.set_header("Cache-control", "max-age=31536000")
+        for dataset in CONFIG["datasets"]:
+            if dataset["name"] == name:
+                path = dataset["file_name"]
+                obj = lib.image_data(name, path)
+                self.set_header("Content-Type", "application/json")
+                self.write(serialize_json(obj))
 
 
 class DataTime(tornado.web.RequestHandler):
@@ -55,13 +71,19 @@ class Palette(tornado.web.RequestHandler):
 
 
 def main():
+    global CONFIG
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8888)
+    parser.add_argument("config_file")
     args = parser.parse_args()
+    with open(args.config_file) as stream:
+        CONFIG = yaml.safe_load(stream)
+
     app = tornado.web.Application([
         ("/", Index),
+        ("/datasets", Datasets),
         ("/data/(.*)/(.*)", Data),
-        ("/image", Image),
+        ("/image/(.*)", Image),
         ("/palette", PaletteNames),
         ("/palette/(.*)", Palette),
         ("/time/(.*)", DataTime),

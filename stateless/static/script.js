@@ -121,17 +121,15 @@ let main = function() {
 
     // Select widget
     let select = new Bokeh.Widgets.Select({
-        options: [
-            "Trop. Africa",
-            "Global"
-        ],
+        options: [],
+    })
+    fetch("/datasets").then((response) => {
+        return response.json()
+    }).then((data) => {
+        select.options = data
     })
     select.connect(select.properties.value.change, () => {
-        let payload = {
-            "Trop. Africa": "takm4p4",
-            "Global": "global"
-        }[select.value]
-        store.dispatch({type: "SET_DATASET", payload: payload})
+        store.dispatch({type: "SET_DATASET", payload: select.value})
     })
     Bokeh.Plotting.show(select, "#select")
 
@@ -171,8 +169,8 @@ let main = function() {
 
     // Image
     let color_mapper = new Bokeh.LinearColorMapper({
-        "low": 0,
-        "high": 11,
+        "low": 200,
+        "high": 300,
         "palette": ["#440154", "#208F8C", "#FDE724"]
     })
     fetch("/palette/Viridis/256").then((response) => {
@@ -191,28 +189,31 @@ let main = function() {
     // RESTful image
     let image_source = new Bokeh.ColumnDataSource({
         data: {
-            x: [0],
-            y: [0],
-            dw: [1e6],
-            dh: [1e6],
-            image: [[
-                [0, 1, 2],
-                [0, 1, 2],
-                [0, 1, 2],
-            ]]
+            x: [],
+            y: [],
+            dw: [],
+            dh: [],
+            image: []
         }
     })
-    fetch("/image").then((response) => {
-        return response.json()
-    }).then((data) => {
-        // fix missing wiring in image_base.ts
-        image_source._shapes = {
-            image: [
-                []
-            ]
+    store.subscribe(() => {
+        let state = store.getState()
+        if (typeof state.dataset === "undefined") {
+            return
         }
-        image_source.data = data
-        image_source.change.emit()
+        let url = `/image/${state.dataset}`
+        fetch(url).then((response) => {
+            return response.json()
+        }).then((data) => {
+            // fix missing wiring in image_base.ts
+            image_source._shapes = {
+                image: [
+                    []
+                ]
+            }
+            image_source.data = data
+            image_source.change.emit()
+        })
     })
     figure.image({
         x: { field: "x" },
