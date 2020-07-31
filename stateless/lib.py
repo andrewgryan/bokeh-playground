@@ -4,9 +4,8 @@ import datetime as dt
 
 def data_times(dataset):
     """Datetime information related to dataset"""
-    x = [dt.datetime.now()]
     return {
-        "x": [1000 * t.timestamp() for t in x]
+        "x": [dt.datetime.now()]
     }
 
 
@@ -24,3 +23,14 @@ def xy_data(dataset, variable):
             "x": [0, 1e5, 2e5],
             "y": [0, 3e5, 1e5]
         }
+
+
+def image_data(dataset, variable):
+    return {
+        "x": [],
+        "y": [],
+        "dw": [],
+        "dh": [],
+        "image": [
+        ]
+    }

@@ -3,6 +3,7 @@ import tornado.web
 import tornado.ioloop
 import bokeh.resources
 import bokeh.palettes
+from bokeh.core.json_encoder import serialize_json
 import lib
 
 
@@ -14,13 +15,15 @@ class Index(tornado.web.RequestHandler):
 class Data(tornado.web.RequestHandler):
     def get(self, dataset, variable):
         # self.set_header("Cache-control", "max-age=31536000")
-        self.write(lib.xy_data(dataset, variable))
+        obj = lib.xy_data(dataset, variable)
+        self.write(serialize_json(obj))
 
 
 class DataTime(tornado.web.RequestHandler):
     def get(self, dataset):
         # self.set_header("Cache-control", "max-age=31536000")
-        self.write(lib.data_times(dataset))
+        obj = lib.data_times(dataset)
+        self.write(serialize_json(obj))
 
 
 class PaletteNames(tornado.web.RequestHandler):
