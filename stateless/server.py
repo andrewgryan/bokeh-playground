@@ -3,7 +3,7 @@ import tornado.web
 import tornado.ioloop
 import bokeh.resources
 import bokeh.palettes
-import datetime as dt
+import lib
 
 
 class Index(tornado.web.RequestHandler):
@@ -13,28 +13,14 @@ class Index(tornado.web.RequestHandler):
 
 class Data(tornado.web.RequestHandler):
     def get(self, dataset, variable):
-        # import time
-        # time.sleep(5)  # Simulate expensive I/O or slow server
         # self.set_header("Cache-control", "max-age=31536000")
-        if dataset == "takm4p4":
-            self.write({
-                "x": [0, 1e5, 2e5],
-                "y": [0, 1e5, 2e5]
-            })
-        else:
-            self.write({
-                "x": [0, 1e5, 2e5],
-                "y": [0, 3e5, 1e5]
-            })
+        self.write(lib.xy_data(dataset, variable))
 
 
 class DataTime(tornado.web.RequestHandler):
     def get(self, dataset):
         # self.set_header("Cache-control", "max-age=31536000")
-        x = [dt.datetime.now()]
-        self.write({
-            "x": [1000 * t.timestamp() for t in x]
-        })
+        self.write(lib.data_times(dataset))
 
 
 class PaletteNames(tornado.web.RequestHandler):
