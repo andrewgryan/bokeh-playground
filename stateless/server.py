@@ -9,13 +9,22 @@ import lib
 
 class Index(tornado.web.RequestHandler):
     def get(self):
-        self.render("index.html", resources=bokeh.resources.CDN.render())
+        # self.render("index.html", resources=bokeh.resources.CDN.render())
+        resources = bokeh.resources.Resources("cdn", minified=False)
+        self.render("index.html", resources=resources.render())
 
 
 class Data(tornado.web.RequestHandler):
     def get(self, dataset, variable):
         # self.set_header("Cache-control", "max-age=31536000")
         obj = lib.xy_data(dataset, variable)
+        self.write(serialize_json(obj))
+
+
+class Image(tornado.web.RequestHandler):
+    def get(self):
+        # self.set_header("Cache-control", "max-age=31536000")
+        obj = lib.image_data()
         self.write(serialize_json(obj))
 
 
@@ -52,6 +61,7 @@ def main():
     app = tornado.web.Application([
         ("/", Index),
         ("/data/(.*)/(.*)", Data),
+        ("/image", Image),
         ("/palette", PaletteNames),
         ("/palette/(.*)", Palette),
         ("/time/(.*)", DataTime),

@@ -1,4 +1,5 @@
 """Example Python I/O library"""
+import numpy as np
 import datetime as dt
 
 
@@ -25,12 +26,15 @@ def xy_data(dataset, variable):
         }
 
 
-def image_data(dataset, variable):
+def image_data():
+    n = 256
+    image = np.linspace(0, 11, n*n, dtype=np.float).reshape((n, n))
     return {
-        "x": [],
-        "y": [],
-        "dw": [],
-        "dh": [],
+        "x": [0],
+        "y": [0],
+        "dw": [1e6],
+        "dh": [1e6],
         "image": [
+            image
         ]
     }
